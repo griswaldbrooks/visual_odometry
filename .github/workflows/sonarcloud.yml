@@ -1,3 +1,57 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:92c15b373d7da89eeb1e81e3ef4026fb54992585daed90c88bbc8b296f5e1f13
-size 1545
+name: SonarCloud Analysis
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  sonarcloud:
+    name: SonarCloud
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Shallow clones should be disabled for better analysis
+          lfs: true
+
+      - name: Setup Pixi
+        uses: prefix-dev/setup-pixi@v0.8.1
+        with:
+          pixi-version: latest
+          cache: true
+
+      - name: Configure CMake with coverage
+        run: pixi run cmake --preset=coverage
+
+      - name: Build with coverage
+        run: pixi run cmake --build --preset=coverage
+
+      - name: Run tests with coverage
+        run: pixi run ctest --preset=coverage
+
+      - name: Generate coverage report
+        run: |
+          pixi run -e default bash -c '
+            gcovr -r . \
+              --gcov-executable "llvm-cov gcov" \
+              --sonarqube coverage.xml \
+              --exclude tests/ \
+              --print-summary
+          '
+
+      - name: SonarCloud Scan
+        uses: SonarSource/sonarcloud-github-action@master
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          args: >
+            -Dsonar.projectKey=griswaldbrooks_visual_odometry
+            -Dsonar.organization=griswaldbrooks
+            -Dsonar.cfamily.compile-commands=build/coverage/compile_commands.json
+            -Dsonar.coverageReportPaths=coverage.xml

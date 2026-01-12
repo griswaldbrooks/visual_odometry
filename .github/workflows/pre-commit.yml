@@ -1,3 +1,50 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:503cd8692556afee539758b999e549fc6e872bfb658a3b9094b2f7c66734235e
-size 1130
+name: Pre-commit Checks
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  format-check:
+    name: Format Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Pixi
+        uses: prefix-dev/setup-pixi@v0.8.1
+        with:
+          pixi-version: latest
+          cache: true
+
+      - name: Check formatting
+        run: |
+          pixi run -e default bash -c '
+            find src include tests -name "*.cpp" -o -name "*.hpp" -o -name "*.h" | \
+            xargs clang-format --dry-run --Werror
+          '
+
+  clang-tidy:
+    name: Clang-Tidy
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Pixi
+        uses: prefix-dev/setup-pixi@v0.8.1
+        with:
+          pixi-version: latest
+          cache: true
+
+      - name: Configure CMake with clang-tidy
+        run: pixi run cmake --preset=ci
+
+      - name: Run clang-tidy
+        run: |
+          pixi run -e default bash -c '
+            run-clang-tidy -p build/ci -quiet -header-filter="(include|src)/.*" src/*.cpp
+          '
