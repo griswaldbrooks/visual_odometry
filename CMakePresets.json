@@ -1,0 +1,118 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 25,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "dev",
+      "displayName": "Development Build",
+      "description": "Default development build with debug info",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/dev",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+        "ENABLE_DEVELOPER_MODE": "ON",
+        "ENABLE_TESTING": "ON",
+        "ENABLE_COVERAGE": "OFF",
+        "ENABLE_SANITIZERS": "ON",
+        "ENABLE_CLANG_TIDY": "OFF",
+        "CMAKE_CXX_COMPILER_LAUNCHER": "ccache"
+      }
+    },
+    {
+      "name": "coverage",
+      "displayName": "Coverage Build",
+      "description": "Build with coverage instrumentation",
+      "inherits": "dev",
+      "binaryDir": "${sourceDir}/build/coverage",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "ENABLE_COVERAGE": "ON",
+        "ENABLE_SANITIZERS": "OFF"
+      }
+    },
+    {
+      "name": "release",
+      "displayName": "Release Build",
+      "description": "Optimized release build",
+      "inherits": "dev",
+      "binaryDir": "${sourceDir}/build/release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "ENABLE_DEVELOPER_MODE": "OFF",
+        "ENABLE_SANITIZERS": "OFF",
+        "ENABLE_CLANG_TIDY": "OFF"
+      }
+    },
+    {
+      "name": "ci",
+      "displayName": "CI Build",
+      "description": "Build for CI with all checks enabled",
+      "inherits": "dev",
+      "binaryDir": "${sourceDir}/build/ci",
+      "cacheVariables": {
+        "ENABLE_CLANG_TIDY": "ON",
+        "ENABLE_SANITIZERS": "ON"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "dev",
+      "configurePreset": "dev",
+      "displayName": "Build (Dev)",
+      "description": "Build using dev preset"
+    },
+    {
+      "name": "coverage",
+      "configurePreset": "coverage",
+      "displayName": "Build (Coverage)",
+      "description": "Build with coverage"
+    },
+    {
+      "name": "release",
+      "configurePreset": "release",
+      "displayName": "Build (Release)",
+      "description": "Build release version"
+    },
+    {
+      "name": "ci",
+      "configurePreset": "ci",
+      "displayName": "Build (CI)",
+      "description": "Build for CI"
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "dev",
+      "configurePreset": "dev",
+      "displayName": "Test (Dev)",
+      "description": "Run tests with dev preset",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "coverage",
+      "configurePreset": "coverage",
+      "displayName": "Test (Coverage)",
+      "description": "Run tests with coverage",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "ci",
+      "configurePreset": "ci",
+      "displayName": "Test (CI)",
+      "description": "Run tests in CI",
+      "output": {
+        "outputOnFailure": true
+      }
+    }
+  ]
+}

@@ -1,0 +1,59 @@
+[project]
+name = "visual_odometry"
+version = "0.1.0"
+description = "Visual odometry system using feature-based motion estimation"
+authors = ["Griswald Brooks <griswald.brooks@gmail.com>"]
+channels = ["conda-forge"]
+platforms = ["linux-64"]
+license = "MIT"
+
+[activation]
+scripts = ["activation.sh"]
+
+[tasks]
+configure = { cmd = "cmake --preset=dev", env = { CC = "clang", CXX = "clang++" } }
+build = { cmd = "cmake --build --preset=dev", env = { LD_LIBRARY_PATH = "${CONDA_PREFIX}/lib" } }
+test = "ctest --preset=dev"
+coverage = "cmake --build --preset=coverage && ctest --preset=coverage"
+format-check = "run-clang-format.py -r src include tests"
+tidy = "run-clang-tidy -p build/dev"
+docs = "cmake --build --preset=dev --target docs"
+clean = "rm -rf build"
+
+[dependencies]
+# Build tools
+cmake = ">=3.25"
+ninja = ">=1.11"
+ccache = ">=4.8"
+
+# Compiler toolchain
+clangxx = ">=17"
+clang-format = ">=17"
+clang-tools = ">=17"
+libcxx = ">=17"
+libstdcxx-ng = "*"
+
+# Visual odometry dependencies
+opencv = ">=4.8"
+eigen = ">=3.4"
+
+# Testing
+catch2 = ">=3.5.0"
+
+# Coverage
+gcovr = ">=6.0"
+llvm-tools = ">=17"
+
+# Documentation
+doxygen = ">=1.10"
+graphviz = ">=9.0"
+
+# Version control
+git-lfs = ">=3.4"
+
+[feature.dev.dependencies]
+gdb = ">=14.0"
+valgrind = ">=3.22"
+
+[environments]
+dev = ["dev"]

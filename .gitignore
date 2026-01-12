@@ -1,0 +1,93 @@
+# Build directories
+build/
+out/
+cmake-build-*/
+
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Fortran module files
+*.mod
+*.smod
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+*.lib
+
+# Executables
+*.exe
+*.out
+*.app
+/visual_odometry
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+CMakeScripts/
+Testing/
+Makefile
+cmake_install.cmake
+install_manifest.txt
+compile_commands.json
+CTestTestfile.cmake
+_deps/
+
+# Coverage
+*.gcov
+*.gcda
+*.gcno
+*.info
+coverage/
+coverage.xml
+coverage.html
+
+# Sanitizers
+*.san
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Doxygen (generated in build/ directory)
+html/
+latex/
+
+# Pixi
+.pixi/
+
+# Catch2
+catch2/
+
+# Clang
+.clangd/
+.cache/
+
+# ccache
+.ccache/
+
+# Temporary files
+*.tmp
+*.bak
+*.backup
+
+# SonarCloud
+.sonar/
+.scannerwork/
