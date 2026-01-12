@@ -56,5 +56,19 @@ git-lfs = ">=3.4"
 gdb = ">=14.0"
 valgrind = ">=3.22"
 
+[feature.viz.dependencies]
+python = ">=3.10"
+pip = ">=23.0"
+numpy = ">=1.24"
+scipy = ">=1.10"
+
+[feature.viz.pypi-dependencies]
+viser = ">=0.2.0"
+
+[feature.viz.tasks]
+viz-test = "python scripts/test_viser.py"
+viz-trajectory = "python scripts/visualize_trajectory.py"
+
 [environments]
 dev = ["dev"]
+viz = ["viz"]

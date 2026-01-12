@@ -101,7 +101,13 @@ if(ENABLE_CLANG_TIDY)
 endif()
 
 # Project library
-add_library(visual_odometry_lib src/visual_odometry.cpp)
+add_library(visual_odometry_lib
+  src/visual_odometry.cpp
+  src/image_loader.cpp
+  src/feature_detector.cpp
+  src/feature_matcher.cpp
+  src/motion_estimator.cpp
+)
 add_library(visual_odometry::lib ALIAS visual_odometry_lib)
 
 target_sources(
@@ -111,6 +117,10 @@ target_sources(
     BASE_DIRS include
     FILES
       include/visual_odometry/visual_odometry.hpp
+      include/visual_odometry/image_loader.hpp
+      include/visual_odometry/feature_detector.hpp
+      include/visual_odometry/feature_matcher.hpp
+      include/visual_odometry/motion_estimator.hpp
 )
 
 target_compile_features(visual_odometry_lib PUBLIC cxx_std_20)

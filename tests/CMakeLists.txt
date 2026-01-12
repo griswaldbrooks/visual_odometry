@@ -1,6 +1,10 @@
 add_executable(
   visual_odometry_tests
   test_main.cpp
+  test_image_loader.cpp
+  test_feature_detector.cpp
+  test_feature_matcher.cpp
+  test_motion_estimator.cpp
 )
 
 target_link_libraries(
