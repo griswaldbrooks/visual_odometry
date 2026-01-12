@@ -38,7 +38,8 @@ opencv = ">=4.8"
 eigen = ">=3.4"
 
 # Testing
-catch2 = ">=3.5.0"
+gtest = ">=1.14"
+gmock = ">=1.14"
 
 # Coverage
 gcovr = ">=6.0"

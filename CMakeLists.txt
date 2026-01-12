@@ -31,7 +31,7 @@ option(ENABLE_CLANG_TIDY "Enable clang-tidy checks" OFF)
 option(ENABLE_DEVELOPER_MODE "Enable developer mode" ON)
 
 # Find packages
-find_package(Catch2 3 REQUIRED)
+find_package(GTest REQUIRED)
 find_package(OpenCV REQUIRED)
 find_package(Eigen3 REQUIRED)
 

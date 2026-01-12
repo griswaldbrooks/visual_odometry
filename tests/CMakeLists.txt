@@ -7,9 +7,11 @@ target_link_libraries(
   visual_odometry_tests
   PRIVATE
     visual_odometry::lib
-    Catch2::Catch2WithMain
+    GTest::gtest
+    GTest::gtest_main
+    GTest::gmock
 )
 
 include(CTest)
-include(Catch)
-catch_discover_tests(visual_odometry_tests)
+include(GoogleTest)
+gtest_discover_tests(visual_odometry_tests)
