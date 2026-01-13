@@ -1,62 +1,92 @@
 #include <visual_odometry/image_loader.hpp>
 #include <filesystem>
 #include <algorithm>
-#include <stdexcept>
 
 namespace visual_odometry {
 
-ImageLoader::ImageLoader(const std::string& image_directory)
-    : imageDirectory_(image_directory), currentIndex_(0) {
-    loadImagePaths();
-}
+ImageLoader::ImageLoader(std::string image_directory, std::vector<std::string> image_paths)
+    : image_directory_(std::move(image_directory)),
+      image_paths_(std::move(image_paths)),
+      current_index_(0) {}
 
-void ImageLoader::loadImagePaths() {
+auto ImageLoader::create(std::string_view image_directory)
+    -> tl::expected<ImageLoader, std::string>
+{
     namespace fs = std::filesystem;
 
-    if (!fs::exists(imageDirectory_)) {
-        throw std::runtime_error("Image directory does not exist: " + imageDirectory_);
+    if (!fs::exists(image_directory)) {
+        return tl::unexpected("Image directory does not exist: " + std::string(image_directory));
     }
 
-    for (const auto& entry : fs::directory_iterator(imageDirectory_)) {
+    std::vector<std::string> image_paths;
+
+    for (auto const& entry : fs::directory_iterator(image_directory)) {
         if (entry.is_regular_file()) {
             auto ext = entry.path().extension().string();
             std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
             if (ext == ".png" || ext == ".jpg" || ext == ".jpeg") {
-                imagePaths_.push_back(entry.path().string());
+                image_paths.push_back(entry.path().string());
             }
         }
     }
 
-    std::sort(imagePaths_.begin(), imagePaths_.end());
+    std::sort(image_paths.begin(), image_paths.end());
+
+    return ImageLoader(std::string(image_directory), std::move(image_paths));
 }
 
-cv::Mat ImageLoader::loadImage(size_t index) const {
-    if (index >= imagePaths_.size()) {
-        throw std::out_of_range("Image index out of range");
+auto ImageLoader::load_image(size_t index) const
+    -> tl::expected<cv::Mat, std::string>
+{
+    if (index >= image_paths_.size()) {
+        return tl::unexpected("Image index out of range: " + std::to_string(index)
+            + " >= " + std::to_string(image_paths_.size()));
     }
-    return cv::imread(imagePaths_[index], cv::IMREAD_GRAYSCALE);
+
+    auto const image = cv::imread(image_paths_[index], cv::IMREAD_GRAYSCALE);
+    if (image.empty()) {
+        return tl::unexpected("Failed to load image: " + image_paths_[index]);
+    }
+
+    return image;
 }
 
-std::pair<cv::Mat, cv::Mat> ImageLoader::loadImagePair(size_t index) const {
-    return {loadImage(index), loadImage(index + 1)};
+auto ImageLoader::load_image_pair(size_t index) const
+    -> tl::expected<std::pair<cv::Mat, cv::Mat>, std::string>
+{
+    auto const img1 = load_image(index);
+    if (!img1.has_value()) {
+        return tl::unexpected(img1.error());
+    }
+
+    auto const img2 = load_image(index + 1);
+    if (!img2.has_value()) {
+        return tl::unexpected(img2.error());
+    }
+
+    return std::make_pair(img1.value(), img2.value());
 }
 
-std::pair<cv::Mat, cv::Mat> ImageLoader::nextPair() {
-    auto pair = loadImagePair(currentIndex_);
-    currentIndex_++;
+auto ImageLoader::next_pair()
+    -> tl::expected<std::pair<cv::Mat, cv::Mat>, std::string>
+{
+    auto pair = load_image_pair(current_index_);
+    if (pair.has_value()) {
+        current_index_++;
+    }
     return pair;
 }
 
-bool ImageLoader::hasNext() const {
-    return currentIndex_ + 1 < imagePaths_.size();
+auto ImageLoader::has_next() const noexcept -> bool {
+    return current_index_ + 1 < image_paths_.size();
 }
 
-void ImageLoader::reset() {
-    currentIndex_ = 0;
+auto ImageLoader::reset() noexcept -> void {
+    current_index_ = 0;
 }
 
-size_t ImageLoader::size() const {
-    return imagePaths_.size();
+auto ImageLoader::size() const noexcept -> size_t {
+    return image_paths_.size();
 }
 
 }  // namespace visual_odometry

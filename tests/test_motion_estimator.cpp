@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+#include <gmock/gmock.h>
 #include <visual_odometry/motion_estimator.hpp>
 #include <random>
 #include <cmath>
@@ -14,26 +15,26 @@ protected:
     }
 
     // Generate synthetic matched points with known motion
-    void generateSyntheticPoints(const Eigen::Matrix3d& R,
-                                  const Eigen::Vector3d& t,
-                                  int numPoints,
-                                  std::vector<cv::Point2f>& points1,
-                                  std::vector<cv::Point2f>& points2) {
+    void generate_synthetic_points(Eigen::Matrix3d const& R,
+                                    Eigen::Vector3d const& t,
+                                    int num_points,
+                                    std::vector<cv::Point2f>& points1,
+                                    std::vector<cv::Point2f>& points2) {
         std::mt19937 rng(42);
-        std::uniform_real_distribution<double> distX(100, 1100);
-        std::uniform_real_distribution<double> distY(50, 300);
-        std::uniform_real_distribution<double> distZ(5, 50);
+        std::uniform_real_distribution<double> dist_x(100, 1100);
+        std::uniform_real_distribution<double> dist_y(50, 300);
+        std::uniform_real_distribution<double> dist_z(5, 50);
 
         Eigen::Matrix3d K;
         K << intrinsics_.fx, 0, intrinsics_.cx,
              0, intrinsics_.fy, intrinsics_.cy,
              0, 0, 1;
 
-        for (int i = 0; i < numPoints; ++i) {
+        for (int i = 0; i < num_points; ++i) {
             // Random 3D point
-            Eigen::Vector3d P(distX(rng) - intrinsics_.cx,
-                              distY(rng) - intrinsics_.cy,
-                              distZ(rng));
+            Eigen::Vector3d P(dist_x(rng) - intrinsics_.cx,
+                              dist_y(rng) - intrinsics_.cy,
+                              dist_z(rng));
             P(0) *= P(2) / intrinsics_.fx;
             P(1) *= P(2) / intrinsics_.fy;
 
@@ -56,15 +57,15 @@ protected:
 
 TEST_F(MotionEstimatorTest, EstimatesForwardMotion) {
     // Pure forward translation
-    Eigen::Matrix3d R = Eigen::Matrix3d::Identity();
+    Eigen::Matrix3d const R = Eigen::Matrix3d::Identity();
     Eigen::Vector3d t(0, 0, 1);
     t.normalize();
 
     std::vector<cv::Point2f> points1, points2;
-    generateSyntheticPoints(R, t, 100, points1, points2);
+    generate_synthetic_points(R, t, 100, points1, points2);
 
     visual_odometry::MotionEstimator estimator(intrinsics_);
-    auto result = estimator.estimate(points1, points2);
+    auto const result = estimator.estimate(points1, points2);
 
     EXPECT_TRUE(result.valid);
     EXPECT_GT(result.inliers, 50);
@@ -75,34 +76,34 @@ TEST_F(MotionEstimatorTest, EstimatesForwardMotion) {
 
 TEST_F(MotionEstimatorTest, EstimatesRotation) {
     // Small rotation around Y axis
-    double angle = 0.05;  // ~3 degrees
+    double const angle = 0.05;  // ~3 degrees
     Eigen::Matrix3d R;
     R = Eigen::AngleAxisd(angle, Eigen::Vector3d::UnitY());
     Eigen::Vector3d t(0.1, 0, 1);
     t.normalize();
 
     std::vector<cv::Point2f> points1, points2;
-    generateSyntheticPoints(R, t, 100, points1, points2);
+    generate_synthetic_points(R, t, 100, points1, points2);
 
     visual_odometry::MotionEstimator estimator(intrinsics_);
-    auto result = estimator.estimate(points1, points2);
+    auto const result = estimator.estimate(points1, points2);
 
     EXPECT_TRUE(result.valid);
     EXPECT_GT(result.inliers, 50);
 }
 
 TEST_F(MotionEstimatorTest, FailsWithTooFewPoints) {
-    std::vector<cv::Point2f> points1 = {{100, 100}, {200, 200}, {300, 300}};
-    std::vector<cv::Point2f> points2 = {{110, 100}, {210, 200}, {310, 300}};
+    std::vector<cv::Point2f> const points1 = {{100, 100}, {200, 200}, {300, 300}};
+    std::vector<cv::Point2f> const points2 = {{110, 100}, {210, 200}, {310, 300}};
 
     visual_odometry::MotionEstimator estimator(intrinsics_);
-    auto result = estimator.estimate(points1, points2);
+    auto const result = estimator.estimate(points1, points2);
 
     EXPECT_FALSE(result.valid);
 }
 
 TEST_F(MotionEstimatorTest, CameraMatrixIsCorrect) {
-    cv::Mat K = intrinsics_.cameraMatrix();
+    cv::Mat const K = intrinsics_.camera_matrix();
 
     EXPECT_DOUBLE_EQ(K.at<double>(0, 0), intrinsics_.fx);
     EXPECT_DOUBLE_EQ(K.at<double>(1, 1), intrinsics_.fy);
@@ -113,15 +114,22 @@ TEST_F(MotionEstimatorTest, CameraMatrixIsCorrect) {
 
 TEST_F(MotionEstimatorTest, LoadsIntrinsicsFromYaml) {
     // This test requires the KITTI camera file to exist
-    std::string cameraFile = "data/kitti_camera.yaml";
+    std::string const camera_file = "data/kitti_camera.yaml";
 
-    try {
-        auto loaded = visual_odometry::CameraIntrinsics::loadFromYaml(cameraFile);
-        EXPECT_NEAR(loaded.fx, 718.856, 0.001);
-        EXPECT_NEAR(loaded.fy, 718.856, 0.001);
-        EXPECT_NEAR(loaded.cx, 607.1928, 0.001);
-        EXPECT_NEAR(loaded.cy, 185.2157, 0.001);
-    } catch (const std::runtime_error&) {
-        GTEST_SKIP() << "Camera file not found, skipping YAML load test";
+    auto const loaded = visual_odometry::CameraIntrinsics::load_from_yaml(camera_file);
+    if (!loaded.has_value()) {
+        GTEST_SKIP() << "Camera file not found, skipping YAML load test: " << loaded.error();
     }
+
+    EXPECT_NEAR(loaded.value().fx, 718.856, 0.001);
+    EXPECT_NEAR(loaded.value().fy, 718.856, 0.001);
+    EXPECT_NEAR(loaded.value().cx, 607.1928, 0.001);
+    EXPECT_NEAR(loaded.value().cy, 185.2157, 0.001);
+}
+
+TEST_F(MotionEstimatorTest, LoadFromYamlReturnsErrorForMissingFile) {
+    auto const result = visual_odometry::CameraIntrinsics::load_from_yaml("/nonexistent/path.yaml");
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_THAT(result.error(), testing::HasSubstr("Could not open"));
 }

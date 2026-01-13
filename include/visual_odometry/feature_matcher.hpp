@@ -2,9 +2,13 @@
 
 #include <opencv2/core.hpp>
 #include <opencv2/features2d.hpp>
+#include <span>
 #include <vector>
 
 namespace visual_odometry {
+
+/// Default Lowe's ratio test threshold
+constexpr auto default_ratio_threshold = 0.75f;
 
 /**
  * @brief Result of feature matching between two images.
@@ -24,7 +28,7 @@ public:
      * @brief Construct a new Feature Matcher.
      * @param ratio_threshold Lowe's ratio test threshold (default 0.75).
      */
-    explicit FeatureMatcher(float ratio_threshold = 0.75f);
+    explicit FeatureMatcher(float ratio_threshold = default_ratio_threshold);
 
     /**
      * @brief Match features between two sets of descriptors.
@@ -34,10 +38,11 @@ public:
      * @param keypoints2 Keypoints from second image.
      * @return MatchResult containing matched points and matches.
      */
-    MatchResult match(const cv::Mat& descriptors1,
-                      const cv::Mat& descriptors2,
-                      const std::vector<cv::KeyPoint>& keypoints1,
-                      const std::vector<cv::KeyPoint>& keypoints2) const;
+    [[nodiscard]] auto match(cv::Mat const& descriptors1,
+                              cv::Mat const& descriptors2,
+                              std::span<cv::KeyPoint const> keypoints1,
+                              std::span<cv::KeyPoint const> keypoints2) const
+        -> MatchResult;
 
     /**
      * @brief Draw matches between two images.
@@ -48,15 +53,16 @@ public:
      * @param matches Matches to draw.
      * @return Image with matches drawn.
      */
-    static cv::Mat drawMatches(const cv::Mat& image1,
-                               const std::vector<cv::KeyPoint>& keypoints1,
-                               const cv::Mat& image2,
-                               const std::vector<cv::KeyPoint>& keypoints2,
-                               const std::vector<cv::DMatch>& matches);
+    [[nodiscard]] static auto draw_matches(cv::Mat const& image1,
+                                            std::vector<cv::KeyPoint> const& keypoints1,
+                                            cv::Mat const& image2,
+                                            std::vector<cv::KeyPoint> const& keypoints2,
+                                            std::vector<cv::DMatch> const& matches)
+        -> cv::Mat;
 
 private:
     cv::Ptr<cv::BFMatcher> matcher_;
-    float ratioThreshold_;
+    float ratio_threshold_;
 };
 
 }  // namespace visual_odometry

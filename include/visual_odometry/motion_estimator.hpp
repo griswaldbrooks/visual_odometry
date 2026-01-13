@@ -3,10 +3,26 @@
 #include <opencv2/core.hpp>
 #include <Eigen/Core>
 #include <Eigen/Geometry>
-#include <vector>
+#include <tl/expected.hpp>
 #include <optional>
+#include <span>
+#include <string>
+#include <string_view>
+#include <vector>
 
 namespace visual_odometry {
+
+/// Default RANSAC reprojection threshold in pixels
+constexpr auto default_ransac_threshold = 1.0;
+
+/// Default RANSAC confidence level
+constexpr auto default_ransac_confidence = 0.999;
+
+/// Minimum inliers required for valid motion estimate
+constexpr auto min_motion_inliers = 10;
+
+/// Minimum points required for Essential matrix computation
+constexpr auto min_essential_points = 5;
 
 /**
  * @brief Camera intrinsic parameters.
@@ -20,12 +36,15 @@ struct CameraIntrinsics {
     /**
      * @brief Get camera matrix as 3x3 cv::Mat.
      */
-    cv::Mat cameraMatrix() const;
+    [[nodiscard]] auto camera_matrix() const -> cv::Mat;
 
     /**
      * @brief Load intrinsics from YAML file.
+     * @param filepath Path to YAML file.
+     * @return CameraIntrinsics or error message.
      */
-    static CameraIntrinsics loadFromYaml(const std::string& filepath);
+    [[nodiscard]] static auto load_from_yaml(std::string_view filepath)
+        -> tl::expected<CameraIntrinsics, std::string>;
 };
 
 /**
@@ -49,9 +68,9 @@ public:
      * @param ransac_threshold RANSAC reprojection threshold in pixels.
      * @param ransac_confidence RANSAC confidence level (0-1).
      */
-    explicit MotionEstimator(const CameraIntrinsics& intrinsics,
-                             double ransac_threshold = 1.0,
-                             double ransac_confidence = 0.999);
+    explicit MotionEstimator(CameraIntrinsics const& intrinsics,
+                             double ransac_threshold = default_ransac_threshold,
+                             double ransac_confidence = default_ransac_confidence);
 
     /**
      * @brief Estimate motion from matched points.
@@ -59,18 +78,21 @@ public:
      * @param points2 Corresponding points in second image.
      * @return MotionEstimate containing R, t if successful.
      */
-    MotionEstimate estimate(const std::vector<cv::Point2f>& points1,
-                            const std::vector<cv::Point2f>& points2) const;
+    [[nodiscard]] auto estimate(std::span<cv::Point2f const> points1,
+                                 std::span<cv::Point2f const> points2) const
+        -> MotionEstimate;
 
     /**
      * @brief Get the camera intrinsics.
      */
-    const CameraIntrinsics& intrinsics() const { return intrinsics_; }
+    [[nodiscard]] auto intrinsics() const noexcept -> CameraIntrinsics const& {
+        return intrinsics_;
+    }
 
 private:
     CameraIntrinsics intrinsics_;
-    double ransacThreshold_;
-    double ransacConfidence_;
+    double ransac_threshold_;
+    double ransac_confidence_;
 };
 
 }  // namespace visual_odometry

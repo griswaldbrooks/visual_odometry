@@ -4,12 +4,14 @@ namespace visual_odometry {
 
 FeatureMatcher::FeatureMatcher(float ratio_threshold)
     : matcher_(cv::BFMatcher::create(cv::NORM_HAMMING, false)),
-      ratioThreshold_(ratio_threshold) {}
+      ratio_threshold_(ratio_threshold) {}
 
-MatchResult FeatureMatcher::match(const cv::Mat& descriptors1,
-                                   const cv::Mat& descriptors2,
-                                   const std::vector<cv::KeyPoint>& keypoints1,
-                                   const std::vector<cv::KeyPoint>& keypoints2) const {
+auto FeatureMatcher::match(cv::Mat const& descriptors1,
+                            cv::Mat const& descriptors2,
+                            std::span<cv::KeyPoint const> keypoints1,
+                            std::span<cv::KeyPoint const> keypoints2) const
+    -> MatchResult
+{
     MatchResult result;
 
     if (descriptors1.empty() || descriptors2.empty()) {
@@ -17,12 +19,12 @@ MatchResult FeatureMatcher::match(const cv::Mat& descriptors1,
     }
 
     // KNN match with k=2 for ratio test
-    std::vector<std::vector<cv::DMatch>> knnMatches;
-    matcher_->knnMatch(descriptors1, descriptors2, knnMatches, 2);
+    std::vector<std::vector<cv::DMatch>> knn_matches;
+    matcher_->knnMatch(descriptors1, descriptors2, knn_matches, 2);
 
     // Apply Lowe's ratio test
-    for (const auto& match : knnMatches) {
-        if (match.size() >= 2 && match[0].distance < ratioThreshold_ * match[1].distance) {
+    for (auto const& match : knn_matches) {
+        if (match.size() >= 2 && match[0].distance < ratio_threshold_ * match[1].distance) {
             result.matches.push_back(match[0]);
             result.points1.push_back(keypoints1[static_cast<size_t>(match[0].queryIdx)].pt);
             result.points2.push_back(keypoints2[static_cast<size_t>(match[0].trainIdx)].pt);
@@ -32,11 +34,13 @@ MatchResult FeatureMatcher::match(const cv::Mat& descriptors1,
     return result;
 }
 
-cv::Mat FeatureMatcher::drawMatches(const cv::Mat& image1,
-                                     const std::vector<cv::KeyPoint>& keypoints1,
-                                     const cv::Mat& image2,
-                                     const std::vector<cv::KeyPoint>& keypoints2,
-                                     const std::vector<cv::DMatch>& matches) {
+auto FeatureMatcher::draw_matches(cv::Mat const& image1,
+                                   std::vector<cv::KeyPoint> const& keypoints1,
+                                   cv::Mat const& image2,
+                                   std::vector<cv::KeyPoint> const& keypoints2,
+                                   std::vector<cv::DMatch> const& matches)
+    -> cv::Mat
+{
     cv::Mat output;
     cv::drawMatches(image1, keypoints1, image2, keypoints2, matches, output,
                     cv::Scalar(0, 255, 0),   // Match color (green)

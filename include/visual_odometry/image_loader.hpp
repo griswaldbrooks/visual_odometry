@@ -2,7 +2,9 @@
 
 #include <opencv2/core.hpp>
 #include <opencv2/imgcodecs.hpp>
+#include <tl/expected.hpp>
 #include <string>
+#include <string_view>
 #include <vector>
 #include <utility>
 
@@ -16,56 +18,62 @@ namespace visual_odometry {
 class ImageLoader {
 public:
     /**
-     * @brief Construct a new Image Loader.
+     * @brief Create a new Image Loader.
      * @param image_directory Path to directory containing images.
-     * @throws std::runtime_error if directory does not exist.
+     * @return ImageLoader or error message if directory does not exist.
      */
-    explicit ImageLoader(const std::string& image_directory);
+    [[nodiscard]] static auto create(std::string_view image_directory)
+        -> tl::expected<ImageLoader, std::string>;
 
     /**
      * @brief Load a single image by index.
      * @param index Image index (0-based).
-     * @return Grayscale image.
-     * @throws std::out_of_range if index is invalid.
+     * @return Grayscale image or error message if index is invalid.
      */
-    cv::Mat loadImage(size_t index) const;
+    [[nodiscard]] auto load_image(size_t index) const
+        -> tl::expected<cv::Mat, std::string>;
 
     /**
      * @brief Load a pair of consecutive images.
      * @param index Index of first image.
-     * @return Pair of (image[index], image[index+1]).
+     * @return Pair of (image[index], image[index+1]) or error.
      */
-    std::pair<cv::Mat, cv::Mat> loadImagePair(size_t index) const;
+    [[nodiscard]] auto load_image_pair(size_t index) const
+        -> tl::expected<std::pair<cv::Mat, cv::Mat>, std::string>;
 
     /**
      * @brief Get the next pair of images and advance the index.
-     * @return Pair of consecutive images.
+     * @return Pair of consecutive images or error.
      */
-    std::pair<cv::Mat, cv::Mat> nextPair();
+    [[nodiscard]] auto next_pair()
+        -> tl::expected<std::pair<cv::Mat, cv::Mat>, std::string>;
 
     /**
      * @brief Check if more image pairs are available.
-     * @return true if nextPair() can be called.
+     * @return true if next_pair() can be called.
      */
-    bool hasNext() const;
+    [[nodiscard]] auto has_next() const noexcept -> bool;
 
     /**
      * @brief Reset to the first image.
      */
-    void reset();
+    auto reset() noexcept -> void;
 
     /**
      * @brief Get total number of images.
      * @return Number of images in the directory.
      */
-    size_t size() const;
+    [[nodiscard]] auto size() const noexcept -> size_t;
 
 private:
-    void loadImagePaths();
+    // Private constructor - use create() factory
+    explicit ImageLoader(std::string image_directory, std::vector<std::string> image_paths);
 
-    std::string imageDirectory_;
-    std::vector<std::string> imagePaths_;
-    size_t currentIndex_;
+    auto load_image_paths() -> tl::expected<void, std::string>;
+
+    std::string image_directory_;
+    std::vector<std::string> image_paths_;
+    size_t current_index_{0};
 };
 
 }  // namespace visual_odometry

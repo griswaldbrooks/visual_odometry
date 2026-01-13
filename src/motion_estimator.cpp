@@ -2,21 +2,22 @@
 #include <opencv2/calib3d.hpp>
 #include <opencv2/core/eigen.hpp>
 #include <fstream>
-#include <stdexcept>
 
 namespace visual_odometry {
 
-cv::Mat CameraIntrinsics::cameraMatrix() const {
+auto CameraIntrinsics::camera_matrix() const -> cv::Mat {
     return (cv::Mat_<double>(3, 3) <<
         fx, 0.0, cx,
         0.0, fy, cy,
         0.0, 0.0, 1.0);
 }
 
-CameraIntrinsics CameraIntrinsics::loadFromYaml(const std::string& filepath) {
-    cv::FileStorage fs(filepath, cv::FileStorage::READ);
+auto CameraIntrinsics::load_from_yaml(std::string_view filepath)
+    -> tl::expected<CameraIntrinsics, std::string>
+{
+    cv::FileStorage fs(std::string(filepath), cv::FileStorage::READ);
     if (!fs.isOpened()) {
-        throw std::runtime_error("Could not open camera file: " + filepath);
+        return tl::unexpected("Could not open camera file: " + std::string(filepath));
     }
 
     CameraIntrinsics intrinsics;
@@ -28,31 +29,39 @@ CameraIntrinsics CameraIntrinsics::loadFromYaml(const std::string& filepath) {
     return intrinsics;
 }
 
-MotionEstimator::MotionEstimator(const CameraIntrinsics& intrinsics,
+MotionEstimator::MotionEstimator(CameraIntrinsics const& intrinsics,
                                  double ransac_threshold,
                                  double ransac_confidence)
     : intrinsics_(intrinsics),
-      ransacThreshold_(ransac_threshold),
-      ransacConfidence_(ransac_confidence) {}
+      ransac_threshold_(ransac_threshold),
+      ransac_confidence_(ransac_confidence) {}
 
-MotionEstimate MotionEstimator::estimate(const std::vector<cv::Point2f>& points1,
-                                          const std::vector<cv::Point2f>& points2) const {
+auto MotionEstimator::estimate(std::span<cv::Point2f const> points1,
+                                std::span<cv::Point2f const> points2) const
+    -> MotionEstimate
+{
     MotionEstimate result;
     result.valid = false;
     result.inliers = 0;
 
-    // Need at least 5 points for Essential matrix
-    if (points1.size() < 5 || points2.size() < 5) {
+    // Need at least min_essential_points for Essential matrix
+    if (points1.size() < min_essential_points || points2.size() < min_essential_points) {
         return result;
     }
 
-    cv::Mat K = intrinsics_.cameraMatrix();
+    // Convert spans to cv::Mat for OpenCV functions
+    cv::Mat const pts1_mat(static_cast<int>(points1.size()), 1, CV_32FC2,
+                           const_cast<cv::Point2f*>(points1.data()));
+    cv::Mat const pts2_mat(static_cast<int>(points2.size()), 1, CV_32FC2,
+                           const_cast<cv::Point2f*>(points2.data()));
+
+    cv::Mat K = intrinsics_.camera_matrix();
     cv::Mat mask;
 
     // Compute Essential matrix using RANSAC
     cv::Mat E = cv::findEssentialMat(
-        points1, points2, K,
-        cv::RANSAC, ransacConfidence_, ransacThreshold_, mask);
+        pts1_mat, pts2_mat, K,
+        cv::RANSAC, ransac_confidence_, ransac_threshold_, mask);
 
     if (E.empty()) {
         return result;
@@ -60,9 +69,9 @@ MotionEstimate MotionEstimator::estimate(const std::vector<cv::Point2f>& points1
 
     // Recover rotation and translation from Essential matrix
     cv::Mat R_cv, t_cv;
-    int inliers = cv::recoverPose(E, points1, points2, K, R_cv, t_cv, mask);
+    int inliers = cv::recoverPose(E, pts1_mat, pts2_mat, K, R_cv, t_cv, mask);
 
-    if (inliers < 10) {
+    if (inliers < min_motion_inliers) {
         return result;
     }
 

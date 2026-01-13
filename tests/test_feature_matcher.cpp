@@ -14,7 +14,7 @@ protected:
             for (int x = 0; x < image1_.cols; ++x) {
                 image1_.at<uchar>(y, x) = ((x / 32) % 2 == (y / 32) % 2) ? 255 : 0;
                 // Second image shifted by 10 pixels
-                int x2 = (x + 10) % image2_.cols;
+                int const x2 = (x + 10) % image2_.cols;
                 image2_.at<uchar>(y, x) = ((x2 / 32) % 2 == (y / 32) % 2) ? 255 : 0;
             }
         }
@@ -28,8 +28,12 @@ protected:
         image2_ += noise2;
 
         // Detect features
-        detector_.detect(image1_, keypoints1_, descriptors1_);
-        detector_.detect(image2_, keypoints2_, descriptors2_);
+        auto const result1 = detector_.detect(image1_);
+        auto const result2 = detector_.detect(image2_);
+        keypoints1_ = result1.keypoints;
+        keypoints2_ = result2.keypoints;
+        descriptors1_ = result1.descriptors;
+        descriptors2_ = result2.descriptors;
     }
 
     cv::Mat image1_;
@@ -43,7 +47,7 @@ protected:
 
 TEST_F(FeatureMatcherTest, MatchesSimilarImages) {
     visual_odometry::FeatureMatcher matcher;
-    auto result = matcher.match(descriptors1_, descriptors2_, keypoints1_, keypoints2_);
+    auto const result = matcher.match(descriptors1_, descriptors2_, keypoints1_, keypoints2_);
 
     EXPECT_GT(result.matches.size(), 0);
     EXPECT_EQ(result.points1.size(), result.matches.size());
@@ -52,11 +56,11 @@ TEST_F(FeatureMatcherTest, MatchesSimilarImages) {
 
 TEST_F(FeatureMatcherTest, MatchedPointsAreConsistent) {
     visual_odometry::FeatureMatcher matcher;
-    auto result = matcher.match(descriptors1_, descriptors2_, keypoints1_, keypoints2_);
+    auto const result = matcher.match(descriptors1_, descriptors2_, keypoints1_, keypoints2_);
 
     for (size_t i = 0; i < result.matches.size(); ++i) {
-        auto idx1 = static_cast<size_t>(result.matches[i].queryIdx);
-        auto idx2 = static_cast<size_t>(result.matches[i].trainIdx);
+        auto const idx1 = static_cast<size_t>(result.matches[i].queryIdx);
+        auto const idx2 = static_cast<size_t>(result.matches[i].trainIdx);
 
         // Verify points match the keypoint indices
         EXPECT_FLOAT_EQ(result.points1[i].x, keypoints1_[idx1].pt.x);
@@ -67,31 +71,31 @@ TEST_F(FeatureMatcherTest, MatchedPointsAreConsistent) {
 }
 
 TEST_F(FeatureMatcherTest, StricterRatioReducesMatches) {
-    visual_odometry::FeatureMatcher looseMatcher(0.9f);
-    visual_odometry::FeatureMatcher strictMatcher(0.5f);
+    visual_odometry::FeatureMatcher loose_matcher(0.9f);
+    visual_odometry::FeatureMatcher strict_matcher(0.5f);
 
-    auto looseResult = looseMatcher.match(descriptors1_, descriptors2_, keypoints1_, keypoints2_);
-    auto strictResult = strictMatcher.match(descriptors1_, descriptors2_, keypoints1_, keypoints2_);
+    auto const loose_result = loose_matcher.match(descriptors1_, descriptors2_, keypoints1_, keypoints2_);
+    auto const strict_result = strict_matcher.match(descriptors1_, descriptors2_, keypoints1_, keypoints2_);
 
-    EXPECT_GE(looseResult.matches.size(), strictResult.matches.size());
+    EXPECT_GE(loose_result.matches.size(), strict_result.matches.size());
 }
 
 TEST_F(FeatureMatcherTest, HandlesEmptyDescriptors) {
     visual_odometry::FeatureMatcher matcher;
-    cv::Mat emptyDesc;
+    cv::Mat const empty_desc;
 
-    auto result = matcher.match(emptyDesc, descriptors2_, {}, keypoints2_);
+    auto result = matcher.match(empty_desc, descriptors2_, {}, keypoints2_);
     EXPECT_EQ(result.matches.size(), 0);
 
-    result = matcher.match(descriptors1_, emptyDesc, keypoints1_, {});
+    result = matcher.match(descriptors1_, empty_desc, keypoints1_, {});
     EXPECT_EQ(result.matches.size(), 0);
 }
 
 TEST_F(FeatureMatcherTest, DrawsMatches) {
     visual_odometry::FeatureMatcher matcher;
-    auto result = matcher.match(descriptors1_, descriptors2_, keypoints1_, keypoints2_);
+    auto const result = matcher.match(descriptors1_, descriptors2_, keypoints1_, keypoints2_);
 
-    cv::Mat output = visual_odometry::FeatureMatcher::drawMatches(
+    cv::Mat const output = visual_odometry::FeatureMatcher::draw_matches(
         image1_, keypoints1_, image2_, keypoints2_, result.matches);
 
     EXPECT_FALSE(output.empty());
