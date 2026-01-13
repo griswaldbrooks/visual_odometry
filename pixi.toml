@@ -51,6 +51,7 @@ graphviz = ">=9.0"
 
 # Version control
 git-lfs = ">=3.4"
+pre-commit = ">=4.0"
 
 [feature.dev.dependencies]
 gdb = ">=14.0"
