@@ -89,7 +89,7 @@ def main():
     args = parser.parse_args()
 
     server = viser.ViserServer()
-    print(f"Viser server started at: http://localhost:{server.port}")
+    print(f"Viser server started at: http://localhost:{server.get_port()}")
 
     # Add world frame
     server.scene.add_frame("world", wxyz=(1, 0, 0, 0), position=(0, 0, 0), axes_length=1.0)
