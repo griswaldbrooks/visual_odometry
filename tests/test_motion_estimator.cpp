@@ -56,7 +56,7 @@ protected:
 };
 
 TEST_F(MotionEstimatorTest, EstimatesForwardMotion) {
-    // Pure forward translation
+    // GIVEN synthetic points with pure forward translation
     Eigen::Matrix3d const R = Eigen::Matrix3d::Identity();
     Eigen::Vector3d t(0, 0, 1);
     t.normalize();
@@ -64,18 +64,20 @@ TEST_F(MotionEstimatorTest, EstimatesForwardMotion) {
     std::vector<cv::Point2f> points1, points2;
     generate_synthetic_points(R, t, 100, points1, points2);
 
+    // WHEN estimating motion
     visual_odometry::MotionEstimator estimator(intrinsics_);
     auto const result = estimator.estimate(points1, points2);
 
+    // THEN estimation should succeed
     EXPECT_TRUE(result.valid);
     EXPECT_GT(result.inliers, 50);
 
-    // Check translation direction (should be roughly forward)
+    // AND translation should be roughly forward
     EXPECT_GT(result.translation(2), 0.9);
 }
 
 TEST_F(MotionEstimatorTest, EstimatesRotation) {
-    // Small rotation around Y axis
+    // GIVEN synthetic points with small rotation around Y axis
     double const angle = 0.05;  // ~3 degrees
     Eigen::Matrix3d R;
     R = Eigen::AngleAxisd(angle, Eigen::Vector3d::UnitY());
@@ -85,26 +87,34 @@ TEST_F(MotionEstimatorTest, EstimatesRotation) {
     std::vector<cv::Point2f> points1, points2;
     generate_synthetic_points(R, t, 100, points1, points2);
 
+    // WHEN estimating motion
     visual_odometry::MotionEstimator estimator(intrinsics_);
     auto const result = estimator.estimate(points1, points2);
 
+    // THEN estimation should succeed
     EXPECT_TRUE(result.valid);
     EXPECT_GT(result.inliers, 50);
 }
 
 TEST_F(MotionEstimatorTest, FailsWithTooFewPoints) {
+    // GIVEN fewer than 5 points
     std::vector<cv::Point2f> const points1 = {{100, 100}, {200, 200}, {300, 300}};
     std::vector<cv::Point2f> const points2 = {{110, 100}, {210, 200}, {310, 300}};
 
+    // WHEN estimating motion
     visual_odometry::MotionEstimator estimator(intrinsics_);
     auto const result = estimator.estimate(points1, points2);
 
+    // THEN estimation should fail
     EXPECT_FALSE(result.valid);
 }
 
 TEST_F(MotionEstimatorTest, CameraMatrixIsCorrect) {
+    // GIVEN camera intrinsics
+    // WHEN getting the camera matrix
     cv::Mat const K = intrinsics_.camera_matrix();
 
+    // THEN matrix should contain correct values
     EXPECT_DOUBLE_EQ(K.at<double>(0, 0), intrinsics_.fx);
     EXPECT_DOUBLE_EQ(K.at<double>(1, 1), intrinsics_.fy);
     EXPECT_DOUBLE_EQ(K.at<double>(0, 2), intrinsics_.cx);
@@ -113,14 +123,16 @@ TEST_F(MotionEstimatorTest, CameraMatrixIsCorrect) {
 }
 
 TEST_F(MotionEstimatorTest, LoadsIntrinsicsFromYaml) {
-    // This test requires the KITTI camera file to exist
+    // GIVEN a path to a camera YAML file
     std::string const camera_file = "data/kitti_camera.yaml";
 
+    // WHEN loading intrinsics
     auto const loaded = visual_odometry::CameraIntrinsics::load_from_yaml(camera_file);
     if (!loaded.has_value()) {
         GTEST_SKIP() << "Camera file not found, skipping YAML load test: " << loaded.error();
     }
 
+    // THEN intrinsics should match expected KITTI values
     EXPECT_NEAR(loaded.value().fx, 718.856, 0.001);
     EXPECT_NEAR(loaded.value().fy, 718.856, 0.001);
     EXPECT_NEAR(loaded.value().cx, 607.1928, 0.001);
@@ -128,8 +140,11 @@ TEST_F(MotionEstimatorTest, LoadsIntrinsicsFromYaml) {
 }
 
 TEST_F(MotionEstimatorTest, LoadFromYamlReturnsErrorForMissingFile) {
+    // GIVEN a nonexistent file path
+    // WHEN loading intrinsics
     auto const result = visual_odometry::CameraIntrinsics::load_from_yaml("/nonexistent/path.yaml");
 
+    // THEN loading should fail with error
     ASSERT_FALSE(result.has_value());
     EXPECT_THAT(result.error(), testing::HasSubstr("Could not open"));
 }

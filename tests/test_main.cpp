@@ -2,6 +2,10 @@
 #include <visual_odometry/visual_odometry.hpp>
 
 TEST(VisualOdometryTest, CanBeConstructed) {
+    // GIVEN nothing (default construction)
+    // WHEN constructing a VisualOdometry object
     visual_odometry::VisualOdometry vo;
-    EXPECT_TRUE(true);  // Placeholder test
+
+    // THEN it should construct successfully
+    EXPECT_TRUE(true);
 }

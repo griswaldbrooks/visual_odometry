@@ -5,6 +5,7 @@ add_executable(
   test_feature_detector.cpp
   test_feature_matcher.cpp
   test_motion_estimator.cpp
+  test_trajectory.cpp
 )
 
 target_link_libraries(

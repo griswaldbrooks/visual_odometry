@@ -35,6 +35,15 @@ find_package(GTest REQUIRED)
 find_package(OpenCV REQUIRED)
 find_package(Eigen3 REQUIRED)
 
+# Fetch tl::expected (header-only)
+include(FetchContent)
+FetchContent_Declare(
+  tl-expected
+  GIT_REPOSITORY https://github.com/TartanLlama/expected.git
+  GIT_TAG v1.1.0
+)
+FetchContent_MakeAvailable(tl-expected)
+
 # Compiler warnings
 add_library(project_warnings INTERFACE)
 target_compile_options(
@@ -107,6 +116,7 @@ add_library(visual_odometry_lib
   src/feature_detector.cpp
   src/feature_matcher.cpp
   src/motion_estimator.cpp
+  src/trajectory.cpp
 )
 add_library(visual_odometry::lib ALIAS visual_odometry_lib)
 
@@ -121,6 +131,7 @@ target_sources(
       include/visual_odometry/feature_detector.hpp
       include/visual_odometry/feature_matcher.hpp
       include/visual_odometry/motion_estimator.hpp
+      include/visual_odometry/trajectory.hpp
 )
 
 target_compile_features(visual_odometry_lib PUBLIC cxx_std_20)
@@ -139,6 +150,7 @@ target_link_libraries(
     project_coverage
     ${OpenCV_LIBS}
     Eigen3::Eigen
+    tl::expected
 )
 
 target_include_directories(
