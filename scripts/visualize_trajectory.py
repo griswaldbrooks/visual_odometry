@@ -12,7 +12,11 @@ from scipy.spatial.transform import Rotation
 def load_trajectory_json(filepath: Path) -> list[dict]:
     """Load trajectory from JSON file output by C++ VO."""
     with open(filepath) as f:
-        return json.load(f)
+        data = json.load(f)
+    # Handle both {"poses": [...]} and [...] formats
+    if isinstance(data, dict) and "poses" in data:
+        return data["poses"]
+    return data
 
 
 def load_kitti_poses(filepath: Path) -> list[np.ndarray]:
@@ -33,6 +37,34 @@ def pose_to_position_quaternion(pose: np.ndarray) -> tuple[np.ndarray, np.ndarra
     quat = rotation.as_quat()  # xyzw
     wxyz = np.array([quat[3], quat[0], quat[1], quat[2]])
     return position, wxyz
+
+
+def compute_ate(gt_positions: np.ndarray, est_positions: np.ndarray) -> dict:
+    """Compute Absolute Trajectory Error (ATE) metrics.
+
+    Args:
+        gt_positions: Ground truth positions (N, 3)
+        est_positions: Estimated positions (N, 3)
+
+    Returns:
+        Dictionary with RMSE, mean, median, std, min, max errors
+    """
+    n = min(len(gt_positions), len(est_positions))
+    gt = np.array(gt_positions[:n])
+    est = np.array(est_positions[:n])
+
+    # Compute per-frame translation errors
+    errors = np.linalg.norm(gt - est, axis=1)
+
+    return {
+        "rmse": float(np.sqrt(np.mean(errors**2))),
+        "mean": float(np.mean(errors)),
+        "median": float(np.median(errors)),
+        "std": float(np.std(errors)),
+        "min": float(np.min(errors)),
+        "max": float(np.max(errors)),
+        "num_frames": n,
+    }
 
 
 def main():
@@ -64,6 +96,7 @@ def main():
 
     # Load and visualize ground truth if available
     gt_path = args.ground_truth
+    gt_positions = []
     if gt_path.exists():
         print(f"Loading ground truth from {gt_path}")
         gt_poses = load_kitti_poses(gt_path)[: args.max_frames]
@@ -127,6 +160,18 @@ def main():
                 color=(255, 0, 0),
             )
         print(f"  Added {len(trajectory)} estimated poses")
+
+        # Compute ATE if ground truth is available
+        if gt_path.exists() and len(gt_positions) > 0:
+            ate = compute_ate(gt_positions, est_positions)
+            print(f"\n  Absolute Trajectory Error (ATE):")
+            print(f"    RMSE:   {ate['rmse']:.3f} m")
+            print(f"    Mean:   {ate['mean']:.3f} m")
+            print(f"    Median: {ate['median']:.3f} m")
+            print(f"    Std:    {ate['std']:.3f} m")
+            print(f"    Min:    {ate['min']:.3f} m")
+            print(f"    Max:    {ate['max']:.3f} m")
+            print(f"    Frames: {ate['num_frames']}")
 
     print("\nOpen the URL above in your browser to see the visualization.")
     print("  Green = Ground Truth")
