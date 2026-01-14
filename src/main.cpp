@@ -29,7 +29,7 @@ void print_usage(std::string_view program) {
               << "\nOptions:\n"
               << "  --camera <file>    Camera intrinsics YAML (default: data/kitti_camera.yaml)\n"
               << "  --output <file>    Output trajectory JSON (default: trajectory.json)\n"
-              << "  --matcher <name>   Feature matcher: orb (default)\n"
+              << "  --matcher <name>   Feature matcher: orb (default), matchanything\n"
               << "  --max-frames <n>   Maximum frames to process (default: all)\n"
               << "  --help             Show this help message\n";
 }
