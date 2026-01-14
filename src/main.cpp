@@ -1,6 +1,5 @@
-#include <visual_odometry/feature_detector.hpp>
-#include <visual_odometry/feature_matcher.hpp>
 #include <visual_odometry/image_loader.hpp>
+#include <visual_odometry/image_matcher.hpp>
 #include <visual_odometry/motion_estimator.hpp>
 #include <visual_odometry/trajectory.hpp>
 #include <visual_odometry/visual_odometry.hpp>
@@ -19,6 +18,7 @@ struct Args {
     std::string image_dir;
     std::string camera_yaml = "data/kitti_camera.yaml";
     std::string output_path = "trajectory.json";
+    std::string matcher = "orb";
     int max_frames = 0;  // 0 = process all
 };
 
@@ -29,6 +29,7 @@ void print_usage(std::string_view program) {
               << "\nOptions:\n"
               << "  --camera <file>    Camera intrinsics YAML (default: data/kitti_camera.yaml)\n"
               << "  --output <file>    Output trajectory JSON (default: trajectory.json)\n"
+              << "  --matcher <name>   Feature matcher: orb (default)\n"
               << "  --max-frames <n>   Maximum frames to process (default: all)\n"
               << "  --help             Show this help message\n";
 }
@@ -49,6 +50,8 @@ auto parse_args(int argc, char* argv[]) -> std::optional<Args> {
             args.camera_yaml = argv[++i];
         } else if (arg == "--output" && i + 1 < argc) {
             args.output_path = argv[++i];
+        } else if (arg == "--matcher" && i + 1 < argc) {
+            args.matcher = argv[++i];
         } else if (arg == "--max-frames" && i + 1 < argc) {
             args.max_frames = std::atoi(argv[++i]);
         } else {
@@ -79,6 +82,7 @@ int main(int argc, char* argv[]) {
               << "  Images:     " << args->image_dir << "\n"
               << "  Camera:     " << args->camera_yaml << "\n"
               << "  Output:     " << args->output_path << "\n"
+              << "  Matcher:    " << args->matcher << "\n"
               << "  Max frames: " << (args->max_frames > 0 ? std::to_string(args->max_frames) : "all") << "\n\n";
 
     // Load camera intrinsics
@@ -106,8 +110,13 @@ int main(int argc, char* argv[]) {
     }
 
     // Initialize VO components
-    visual_odometry::FeatureDetector detector;
-    visual_odometry::FeatureMatcher matcher;
+    auto matcher = visual_odometry::create_matcher(args->matcher);
+    if (!matcher) {
+        std::cerr << "Error: Unknown matcher: " << args->matcher << "\n";
+        return 1;
+    }
+    std::cout << "Using matcher: " << matcher->name() << "\n";
+
     visual_odometry::MotionEstimator estimator(intrinsics);
     visual_odometry::Trajectory trajectory;
 
@@ -130,14 +139,8 @@ int main(int argc, char* argv[]) {
         }
         auto const& [img1, img2] = *pair_result;
 
-        // Detect features
-        auto const det1 = detector.detect(img1);
-        auto const det2 = detector.detect(img2);
-
-        // Match features
-        auto const match_result = matcher.match(
-            det1.descriptors, det2.descriptors,
-            det1.keypoints, det2.keypoints);
+        // Match features between images
+        auto const match_result = matcher->match_images(img1, img2);
 
         // Estimate motion
         auto const motion = estimator.estimate(match_result.points1, match_result.points2);
@@ -150,7 +153,6 @@ int main(int argc, char* argv[]) {
         // Progress output
         if ((i + 1) % 100 == 0 || i == max_pairs - 1) {
             std::cout << "  Frame " << std::setw(5) << (i + 1) << "/" << max_pairs
-                      << " | Features: " << det1.keypoints.size()
                       << " | Matches: " << match_result.matches.size()
                       << " | Inliers: " << motion.inliers
                       << (motion.valid ? "" : " [FAILED]") << "\n";

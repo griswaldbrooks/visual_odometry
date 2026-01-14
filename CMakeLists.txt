@@ -115,6 +115,7 @@ add_library(visual_odometry_lib
   src/image_loader.cpp
   src/feature_detector.cpp
   src/feature_matcher.cpp
+  src/image_matcher.cpp
   src/motion_estimator.cpp
   src/trajectory.cpp
 )
@@ -130,6 +131,7 @@ target_sources(
       include/visual_odometry/image_loader.hpp
       include/visual_odometry/feature_detector.hpp
       include/visual_odometry/feature_matcher.hpp
+      include/visual_odometry/image_matcher.hpp
       include/visual_odometry/motion_estimator.hpp
       include/visual_odometry/trajectory.hpp
 )
