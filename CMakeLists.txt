@@ -29,6 +29,7 @@ option(ENABLE_COVERAGE "Enable coverage reporting" OFF)
 option(ENABLE_SANITIZERS "Enable sanitizers (ASan, UBSan)" OFF)
 option(ENABLE_CLANG_TIDY "Enable clang-tidy checks" OFF)
 option(ENABLE_DEVELOPER_MODE "Enable developer mode" ON)
+option(ENABLE_PYTHON_BINDINGS "Enable Python bindings via nanobind" OFF)
 
 # Find packages
 find_package(GTest REQUIRED)
@@ -43,6 +44,28 @@ FetchContent_Declare(
   GIT_TAG v1.1.0
 )
 FetchContent_MakeAvailable(tl-expected)
+
+# Python bindings dependencies
+if(ENABLE_PYTHON_BINDINGS)
+  find_package(Python 3.10 COMPONENTS Interpreter Development.Module REQUIRED)
+
+  # Fetch nanobind
+  FetchContent_Declare(
+    nanobind
+    GIT_REPOSITORY https://github.com/wjakob/nanobind.git
+    GIT_TAG v2.4.0
+  )
+  FetchContent_MakeAvailable(nanobind)
+
+  # Fetch cvnp_nano for cv::Mat <-> numpy conversion (header-only, don't run CMakeLists)
+  FetchContent_Declare(
+    cvnp_nano
+    GIT_REPOSITORY https://github.com/pthom/cvnp_nano.git
+    GIT_TAG main
+  )
+  FetchContent_Populate(cvnp_nano)
+  # cvnp_nano is header-only, we just need the include path: ${cvnp_nano_SOURCE_DIR}
+endif()
 
 # Compiler warnings
 add_library(project_warnings INTERFACE)
@@ -215,4 +238,58 @@ if(ENABLE_COVERAGE)
     COMMENT "Generating coverage report"
     DEPENDS visual_odometry_tests
   )
+endif()
+
+# Python bindings
+if(ENABLE_PYTHON_BINDINGS)
+  # Create a version of the library without sanitizers for Python bindings
+  add_library(visual_odometry_lib_py
+    src/visual_odometry.cpp
+    src/image_loader.cpp
+    src/feature_detector.cpp
+    src/feature_matcher.cpp
+    src/image_matcher.cpp
+    src/motion_estimator.cpp
+    src/trajectory.cpp
+  )
+
+  target_compile_features(visual_odometry_lib_py PUBLIC cxx_std_20)
+  set_target_properties(visual_odometry_lib_py PROPERTIES CXX_EXTENSIONS OFF POSITION_INDEPENDENT_CODE ON)
+
+  target_link_libraries(
+    visual_odometry_lib_py
+    PUBLIC
+      ${OpenCV_LIBS}
+      Eigen3::Eigen
+      tl::expected
+  )
+
+  target_include_directories(
+    visual_odometry_lib_py
+    PUBLIC
+      ${CMAKE_CURRENT_SOURCE_DIR}/include
+      ${OpenCV_INCLUDE_DIRS}
+  )
+
+  # Create Python module
+  nanobind_add_module(
+    _visual_odometry_impl
+    NB_STATIC
+    src/python_bindings.cpp
+  )
+
+  target_link_libraries(
+    _visual_odometry_impl
+    PRIVATE
+      visual_odometry_lib_py
+  )
+
+  target_include_directories(
+    _visual_odometry_impl
+    PRIVATE
+      ${cvnp_nano_SOURCE_DIR}
+  )
+
+  # Install the module to the python package directory
+  install(TARGETS _visual_odometry_impl LIBRARY DESTINATION visual_odometry)
 endif()
