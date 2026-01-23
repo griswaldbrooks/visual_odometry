@@ -214,34 +214,38 @@ NB_MODULE(_visual_odometry_impl, m) {
             return self.valid;
         });
 
-    // ==================== MotionEstimator ====================
-    nb::class_<vo::MotionEstimator>(m, "MotionEstimator",
-        "Estimates camera motion from matched feature points.")
+    // ==================== MotionEstimatorConfig ====================
+    nb::class_<vo::MotionEstimatorConfig>(m, "MotionEstimatorConfig",
+        "Configuration parameters for motion estimation.")
 
-        .def(nb::init<vo::CameraIntrinsics const&, double, double>(),
-        "intrinsics"_a,
-        "ransac_threshold"_a = vo::default_ransac_threshold,
-        "ransac_confidence"_a = vo::default_ransac_confidence,
-        "Construct a new Motion Estimator.\n\n"
-        "Args:\n"
-        "    intrinsics: Camera intrinsic parameters.\n"
-        "    ransac_threshold: RANSAC reprojection threshold in pixels (default: 1.0).\n"
-        "    ransac_confidence: RANSAC confidence level 0-1 (default: 0.999).")
+        .def(nb::init<>())
 
-        .def("estimate", [](vo::MotionEstimator const& self,
-                            std::vector<cv::Point2f> const& points1,
-                            std::vector<cv::Point2f> const& points2) {
-            return self.estimate(points1, points2);
-        }, "points1"_a, "points2"_a,
-        "Estimate motion from matched points.\n\n"
-        "Args:\n"
-        "    points1: Points in first image.\n"
-        "    points2: Corresponding points in second image.\n\n"
-        "Returns:\n"
-        "    MotionEstimate containing R, t if successful.")
+        .def_rw("ransac_threshold", &vo::MotionEstimatorConfig::ransac_threshold,
+        "RANSAC reprojection threshold in pixels (default: 1.0).")
 
-        .def_prop_ro("intrinsics", &vo::MotionEstimator::intrinsics,
-        "Get the camera intrinsics.");
+        .def_rw("ransac_confidence", &vo::MotionEstimatorConfig::ransac_confidence,
+        "RANSAC confidence level 0-1 (default: 0.999).")
+
+        .def("__repr__", [](vo::MotionEstimatorConfig const& self) {
+            return "MotionEstimatorConfig(ransac_threshold=" + std::to_string(self.ransac_threshold) +
+                   ", ransac_confidence=" + std::to_string(self.ransac_confidence) + ")";
+        });
+
+    // ==================== estimate_motion function ====================
+    m.def("estimate_motion", [](std::vector<cv::Point2f> const& points1,
+                                 std::vector<cv::Point2f> const& points2,
+                                 vo::CameraIntrinsics const& intrinsics,
+                                 vo::MotionEstimatorConfig const& config) {
+        return vo::estimate_motion(points1, points2, intrinsics, config);
+    }, "points1"_a, "points2"_a, "intrinsics"_a, "config"_a = vo::MotionEstimatorConfig{},
+    "Estimate camera motion from matched feature points.\n\n"
+    "Args:\n"
+    "    points1: Points in first image.\n"
+    "    points2: Corresponding points in second image.\n"
+    "    intrinsics: Camera intrinsic parameters.\n"
+    "    config: Configuration for RANSAC parameters (optional).\n\n"
+    "Returns:\n"
+    "    MotionEstimate containing R, t if successful.");
 
     // ==================== Pose ====================
     nb::class_<vo::Pose>(m, "Pose",

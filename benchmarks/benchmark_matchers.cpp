@@ -82,7 +82,7 @@ struct BenchmarkResult {
 [[nodiscard]] auto benchmark_matcher(
     visual_odometry::ImageMatcher const& matcher,
     visual_odometry::ImageLoader& loader,
-    std::optional<visual_odometry::MotionEstimator> const& motion_estimator)
+    std::optional<visual_odometry::CameraIntrinsics> const& intrinsics)
     -> BenchmarkResult
 {
     BenchmarkResult result;
@@ -117,9 +117,10 @@ struct BenchmarkResult {
         result.total_matches += num_matches;
 
         std::size_t inliers = 0;
-        if (motion_estimator && num_matches >= 5) {
-            auto const motion = motion_estimator->estimate(match_result.points1,
-                                                           match_result.points2);
+        if (intrinsics && num_matches >= 5) {
+            visual_odometry::MotionEstimatorConfig const config{};
+            auto const motion = visual_odometry::estimate_motion(
+                match_result.points1, match_result.points2, *intrinsics, config);
             inliers = static_cast<std::size_t>(motion.inliers);
             result.total_inliers += inliers;
         }
@@ -127,7 +128,7 @@ struct BenchmarkResult {
         std::cout << "  Pair " << result.num_pairs
                   << ": " << std::fixed << std::setprecision(2) << duration_ms
                   << " ms (" << num_matches << " matches";
-        if (motion_estimator) {
+        if (intrinsics) {
             std::cout << ", " << inliers << " inliers";
         }
         std::cout << ")\n";
@@ -136,7 +137,7 @@ struct BenchmarkResult {
     if (result.num_pairs > 0) {
         result.avg_time_ms = result.total_time_ms / static_cast<double>(result.num_pairs);
         result.avg_matches = static_cast<double>(result.total_matches) / static_cast<double>(result.num_pairs);
-        if (motion_estimator) {
+        if (intrinsics) {
             result.avg_inliers = static_cast<double>(result.total_inliers) / static_cast<double>(result.num_pairs);
             if (result.total_matches > 0) {
                 result.avg_inlier_ratio = static_cast<double>(result.total_inliers) / static_cast<double>(result.total_matches);
@@ -192,7 +193,7 @@ int main(int argc, char* argv[]) {
     std::cout << '\n';
 
     // Load camera intrinsics (optional, for accuracy metrics)
-    std::optional<visual_odometry::MotionEstimator> motion_estimator;
+    std::optional<visual_odometry::CameraIntrinsics> intrinsics;
     if (!args->camera_yaml.empty()) {
         auto const intrinsics_result =
             visual_odometry::CameraIntrinsics::load_from_yaml(args->camera_yaml);
@@ -201,7 +202,7 @@ int main(int argc, char* argv[]) {
                       << intrinsics_result.error() << '\n';
             std::cerr << "Continuing without accuracy metrics.\n\n";
         } else {
-            motion_estimator.emplace(*intrinsics_result);
+            intrinsics = *intrinsics_result;
             std::cout << "Loaded camera intrinsics (fx=" << intrinsics_result->fx
                       << ", fy=" << intrinsics_result->fy << ")\n";
         }
@@ -226,7 +227,7 @@ int main(int argc, char* argv[]) {
     }
 
     // Run benchmark
-    auto const result = benchmark_matcher(*matcher, loader, motion_estimator);
+    auto const result = benchmark_matcher(*matcher, loader, intrinsics);
 
     // Print summary
     std::cout << "\nBenchmark Summary\n"
@@ -236,7 +237,7 @@ int main(int argc, char* argv[]) {
               << result.total_time_ms << " ms\n"
               << "  Avg time/pair: " << std::fixed << std::setprecision(2)
               << result.avg_time_ms << " ms\n";
-    if (motion_estimator) {
+    if (intrinsics) {
         std::cout << "  Avg matches:   " << std::fixed << std::setprecision(2)
                   << result.avg_matches << '\n'
                   << "  Avg inliers:   " << std::fixed << std::setprecision(2)

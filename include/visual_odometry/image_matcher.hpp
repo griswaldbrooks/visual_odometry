@@ -17,11 +17,25 @@ class OnnxSession;
 namespace visual_odometry {
 
 /**
+ * @brief Match features between two images using ORB detection and matching.
+ * @param img1 First grayscale image.
+ * @param img2 Second grayscale image.
+ * @param detector_config Configuration for feature detection.
+ * @param matcher_config Configuration for feature matching.
+ * @return MatchResult containing corresponding points.
+ */
+[[nodiscard]] auto match_images_orb(cv::Mat const& img1,
+                                    cv::Mat const& img2,
+                                    FeatureDetectorConfig const& detector_config = {},
+                                    FeatureMatcherConfig const& matcher_config = {})
+    -> MatchResult;
+
+/**
  * @brief Abstract interface for image-to-image feature matching.
  *
  * This provides a unified interface for different matching backends:
  * - ORB (traditional feature detection + descriptor matching)
- * - Learned matchers like MatchAnything (end-to-end matching)
+ * - LightGlue (learned end-to-end matching)
  */
 class ImageMatcher {
 public:
@@ -70,39 +84,6 @@ private:
 };
 
 /**
- * @brief MatchAnything learned feature matcher (via Python subprocess).
- *
- * Uses the MatchAnything model from ZJU for end-to-end learned matching.
- * Requires Python environment with transformers and torch installed.
- */
-class MatchAnythingMatcher : public ImageMatcher {
-public:
-    /**
-     * @brief Construct MatchAnything matcher.
-     * @param script_path Path to match_anything.py script.
-     * @param python_exe Python executable (default: "python3").
-     * @param threshold Confidence threshold for matches (default: 0.2).
-     */
-    explicit MatchAnythingMatcher(
-        std::filesystem::path script_path = "scripts/match_anything.py",
-        std::string python_exe = "python3",
-        float threshold = 0.2f);
-
-    [[nodiscard]] auto match_images(cv::Mat const& img1,
-                                    cv::Mat const& img2) const
-        -> MatchResult override;
-
-    [[nodiscard]] auto name() const -> std::string_view override {
-        return "MatchAnything";
-    }
-
-private:
-    std::filesystem::path script_path_;
-    std::string python_exe_;
-    float threshold_;
-};
-
-/**
  * @brief LightGlue learned feature matcher using ONNX Runtime.
  *
  * Uses the DISK+LightGlue fused model for end-to-end learned matching.
@@ -140,7 +121,7 @@ private:
 
 /**
  * @brief Factory function to create a matcher by name.
- * @param name Matcher name: "orb" (default), "matchanything", "lightglue".
+ * @param name Matcher name: "orb" (default), "lightglue".
  * @return Unique pointer to the matcher, or nullptr if unknown.
  */
 [[nodiscard]] auto create_matcher(std::string_view name)

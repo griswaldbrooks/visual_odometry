@@ -29,15 +29,10 @@ auto CameraIntrinsics::load_from_yaml(std::string_view filepath)
     return intrinsics;
 }
 
-MotionEstimator::MotionEstimator(CameraIntrinsics const& intrinsics,
-                                 double ransac_threshold,
-                                 double ransac_confidence)
-    : intrinsics_(intrinsics),
-      ransac_threshold_(ransac_threshold),
-      ransac_confidence_(ransac_confidence) {}
-
-auto MotionEstimator::estimate(std::span<cv::Point2f const> points1,
-                                std::span<cv::Point2f const> points2) const
+auto estimate_motion(std::span<cv::Point2f const> points1,
+                     std::span<cv::Point2f const> points2,
+                     CameraIntrinsics const& intrinsics,
+                     MotionEstimatorConfig const& config)
     -> MotionEstimate
 {
     MotionEstimate result;
@@ -55,13 +50,13 @@ auto MotionEstimator::estimate(std::span<cv::Point2f const> points1,
     cv::Mat const pts2_mat(static_cast<int>(points2.size()), 1, CV_32FC2,
                            const_cast<cv::Point2f*>(points2.data()));
 
-    cv::Mat K = intrinsics_.camera_matrix();
+    cv::Mat const K = intrinsics.camera_matrix();
     cv::Mat mask;
 
     // Compute Essential matrix using RANSAC
-    cv::Mat E = cv::findEssentialMat(
+    cv::Mat const E = cv::findEssentialMat(
         pts1_mat, pts2_mat, K,
-        cv::RANSAC, ransac_confidence_, ransac_threshold_, mask);
+        cv::RANSAC, config.ransac_confidence, config.ransac_threshold, mask);
 
     if (E.empty()) {
         return result;
@@ -69,7 +64,7 @@ auto MotionEstimator::estimate(std::span<cv::Point2f const> points1,
 
     // Recover rotation and translation from Essential matrix
     cv::Mat R_cv, t_cv;
-    int inliers = cv::recoverPose(E, pts1_mat, pts2_mat, K, R_cv, t_cv, mask);
+    int const inliers = cv::recoverPose(E, pts1_mat, pts2_mat, K, R_cv, t_cv, mask);
 
     if (inliers < min_motion_inliers) {
         return result;

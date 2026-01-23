@@ -117,7 +117,7 @@ int main(int argc, char* argv[]) {
     }
     std::cout << "Using matcher: " << matcher->name() << "\n";
 
-    visual_odometry::MotionEstimator estimator(intrinsics);
+    visual_odometry::MotionEstimatorConfig const config{};
     visual_odometry::Trajectory trajectory;
 
     // Determine number of frames to process
@@ -143,7 +143,8 @@ int main(int argc, char* argv[]) {
         auto const match_result = matcher->match_images(img1, img2);
 
         // Estimate motion
-        auto const motion = estimator.estimate(match_result.points1, match_result.points2);
+        auto const motion = visual_odometry::estimate_motion(
+            match_result.points1, match_result.points2, intrinsics, config);
 
         // Add to trajectory
         if (trajectory.add_motion(motion)) {

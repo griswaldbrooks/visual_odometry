@@ -65,8 +65,8 @@ TEST_F(MotionEstimatorTest, EstimatesForwardMotion) {
     generate_synthetic_points(R, t, 100, points1, points2);
 
     // WHEN estimating motion
-    visual_odometry::MotionEstimator estimator(intrinsics_);
-    auto const result = estimator.estimate(points1, points2);
+    visual_odometry::MotionEstimatorConfig const config{};
+    auto const result = visual_odometry::estimate_motion(points1, points2, intrinsics_, config);
 
     // THEN estimation should succeed
     EXPECT_TRUE(result.valid);
@@ -88,8 +88,8 @@ TEST_F(MotionEstimatorTest, EstimatesRotation) {
     generate_synthetic_points(R, t, 100, points1, points2);
 
     // WHEN estimating motion
-    visual_odometry::MotionEstimator estimator(intrinsics_);
-    auto const result = estimator.estimate(points1, points2);
+    visual_odometry::MotionEstimatorConfig const config{};
+    auto const result = visual_odometry::estimate_motion(points1, points2, intrinsics_, config);
 
     // THEN estimation should succeed
     EXPECT_TRUE(result.valid);
@@ -102,8 +102,8 @@ TEST_F(MotionEstimatorTest, FailsWithTooFewPoints) {
     std::vector<cv::Point2f> const points2 = {{110, 100}, {210, 200}, {310, 300}};
 
     // WHEN estimating motion
-    visual_odometry::MotionEstimator estimator(intrinsics_);
-    auto const result = estimator.estimate(points1, points2);
+    visual_odometry::MotionEstimatorConfig const config{};
+    auto const result = visual_odometry::estimate_motion(points1, points2, intrinsics_, config);
 
     // THEN estimation should fail
     EXPECT_FALSE(result.valid);
