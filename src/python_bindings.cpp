@@ -153,6 +153,52 @@ NB_MODULE(_visual_odometry_impl, m) {
         "    max_features: Maximum features to detect (default: 2000).\n"
         "    ratio_threshold: Lowe's ratio test threshold (default: 0.75).");
 
+    // ==================== orb_matcher ====================
+    nb::class_<vo::orb_matcher>(m, "orb_matcher",
+        "ORB-based image matcher (detect + match).")
+
+        .def(nb::init<int, float>(),
+        "max_features"_a = vo::default_max_features,
+        "ratio_threshold"_a = vo::default_ratio_threshold,
+        "Construct ORB matcher.\n\n"
+        "Args:\n"
+        "    max_features: Maximum features to detect (default: 2000).\n"
+        "    ratio_threshold: Lowe's ratio test threshold (default: 0.75).")
+
+        .def("match_images", &vo::orb_matcher::match_images,
+        "img1"_a, "img2"_a,
+        "Match features between two images.\n\n"
+        "Args:\n"
+        "    img1: First grayscale image (numpy array).\n"
+        "    img2: Second grayscale image (numpy array).\n\n"
+        "Returns:\n"
+        "    MatchResult containing corresponding points.")
+
+        .def_prop_ro("name", &vo::orb_matcher::name,
+        "Name of this matcher backend.");
+
+    // ==================== lightglue_matcher ====================
+    nb::class_<vo::lightglue_matcher>(m, "lightglue_matcher",
+        "LightGlue learned feature matcher using ONNX Runtime.")
+
+        .def(nb::init<std::filesystem::path>(),
+        "model_path"_a = "models/disk_lightglue_end2end.onnx",
+        "Construct LightGlue matcher.\n\n"
+        "Args:\n"
+        "    model_path: Path to ONNX model file (default: models/disk_lightglue_end2end.onnx).")
+
+        .def("match_images", &vo::lightglue_matcher::match_images,
+        "img1"_a, "img2"_a,
+        "Match features between two images.\n\n"
+        "Args:\n"
+        "    img1: First grayscale image (numpy array).\n"
+        "    img2: Second grayscale image (numpy array).\n\n"
+        "Returns:\n"
+        "    MatchResult containing corresponding points.")
+
+        .def_prop_ro("name", &vo::lightglue_matcher::name,
+        "Name of this matcher backend.");
+
     // ==================== create_matcher factory ====================
     m.def("create_matcher", [](std::string_view name) {
         auto matcher = vo::create_matcher(name);

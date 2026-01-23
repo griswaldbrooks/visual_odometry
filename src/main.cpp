@@ -110,12 +110,14 @@ int main(int argc, char* argv[]) {
     }
 
     // Initialize VO components
-    auto matcher = visual_odometry::create_matcher(args->matcher);
-    if (!matcher) {
-        std::cerr << "Error: Unknown matcher: " << args->matcher << "\n";
+    visual_odometry::image_matcher matcher;
+    try {
+        matcher = visual_odometry::create_image_matcher(args->matcher);
+    } catch (std::exception const& e) {
+        std::cerr << "Error: " << e.what() << "\n";
         return 1;
     }
-    std::cout << "Using matcher: " << matcher->name() << "\n";
+    std::cout << "Using matcher: " << std::visit([](auto const& m) { return m.name(); }, matcher) << "\n";
 
     visual_odometry::MotionEstimatorConfig const config{};
     visual_odometry::Trajectory trajectory;
@@ -140,7 +142,11 @@ int main(int argc, char* argv[]) {
         auto const& [img1, img2] = *pair_result;
 
         // Match features between images
-        auto const match_result = matcher->match_images(img1, img2);
+        auto const match_result = std::visit(
+            [&](visual_odometry::matcher auto const& m) {
+                return m.match_images(img1, img2);
+            },
+            matcher);
 
         // Estimate motion
         auto const motion = visual_odometry::estimate_motion(

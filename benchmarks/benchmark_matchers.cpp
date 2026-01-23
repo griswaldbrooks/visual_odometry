@@ -80,13 +80,14 @@ struct BenchmarkResult {
 };
 
 [[nodiscard]] auto benchmark_matcher(
-    visual_odometry::ImageMatcher const& matcher,
+    visual_odometry::image_matcher const& matcher,
     visual_odometry::ImageLoader& loader,
     std::optional<visual_odometry::CameraIntrinsics> const& intrinsics)
     -> BenchmarkResult
 {
     BenchmarkResult result;
-    result.matcher_name = std::string(matcher.name());
+    result.matcher_name = std::string(
+        std::visit([](auto const& m) { return m.name(); }, matcher));
 
     loader.reset();
 
@@ -103,7 +104,11 @@ struct BenchmarkResult {
 
         // Time the matching operation
         auto const start = std::chrono::high_resolution_clock::now();
-        auto const match_result = matcher.match_images(img1, img2);
+        auto const match_result = std::visit(
+            [&](visual_odometry::matcher auto const& m) {
+                return m.match_images(img1, img2);
+            },
+            matcher);
         auto const end = std::chrono::high_resolution_clock::now();
 
         auto const duration_ms =
@@ -219,15 +224,17 @@ int main(int argc, char* argv[]) {
     std::cout << "Loaded " << loader.size() << " images\n\n";
 
     // Create matcher
-    auto matcher = visual_odometry::create_matcher(args->matcher);
-    if (!matcher) {
-        std::cerr << "Error: Unknown matcher: " << args->matcher << '\n';
-        std::cerr << "Available matchers: orb, matchanything, lightglue\n";
+    visual_odometry::image_matcher matcher;
+    try {
+        matcher = visual_odometry::create_image_matcher(args->matcher);
+    } catch (std::exception const& e) {
+        std::cerr << "Error: " << e.what() << '\n';
+        std::cerr << "Available matchers: orb, lightglue\n";
         return 1;
     }
 
     // Run benchmark
-    auto const result = benchmark_matcher(*matcher, loader, intrinsics);
+    auto const result = benchmark_matcher(matcher, loader, intrinsics);
 
     // Print summary
     std::cout << "\nBenchmark Summary\n"

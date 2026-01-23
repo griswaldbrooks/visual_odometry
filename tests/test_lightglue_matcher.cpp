@@ -66,8 +66,8 @@ protected:
 
 TEST_F(LightGlueMatcherTest, LoadsModelSuccessfully) {
     // GIVEN a valid LightGlue model path
-    // WHEN creating a LightGlueImageMatcher
-    visual_odometry::LightGlueImageMatcher matcher{kTestModelPath};
+    // WHEN creating a lightglue_matcher
+    visual_odometry::lightglue_matcher matcher{kTestModelPath};
 
     // THEN the matcher should load without throwing
     EXPECT_EQ(matcher.name(), "LightGlue");
@@ -75,7 +75,7 @@ TEST_F(LightGlueMatcherTest, LoadsModelSuccessfully) {
 
 TEST_F(LightGlueMatcherTest, MatchesSimilarImages) {
     // GIVEN a LightGlue matcher
-    visual_odometry::LightGlueImageMatcher matcher{kTestModelPath};
+    visual_odometry::lightglue_matcher matcher{kTestModelPath};
 
     // WHEN matching two similar images
     // Note: Some ONNX models may have operators not supported on CPU
@@ -99,7 +99,7 @@ TEST_F(LightGlueMatcherTest, MatchesSimilarImages) {
 
 TEST_F(LightGlueMatcherTest, PointArraysHaveEqualSize) {
     // GIVEN a LightGlue matcher
-    visual_odometry::LightGlueImageMatcher matcher{kTestModelPath};
+    visual_odometry::lightglue_matcher matcher{kTestModelPath};
 
     // WHEN matching two images
     // Skip if model has CPU-unsupported operators
@@ -126,7 +126,7 @@ TEST_F(LightGlueMatcherTest, PointArraysHaveEqualSize) {
 
 TEST_F(LightGlueMatcherTest, ReturnsCorrectName) {
     // GIVEN a LightGlue matcher
-    visual_odometry::LightGlueImageMatcher matcher{kTestModelPath};
+    visual_odometry::lightglue_matcher matcher{kTestModelPath};
 
     // THEN name should be "LightGlue"
     EXPECT_EQ(matcher.name(), "LightGlue");
