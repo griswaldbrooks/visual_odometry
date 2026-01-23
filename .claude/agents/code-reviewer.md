@@ -48,11 +48,16 @@ auto match_result = matcher.match(...);
 struct motion_estimate { ... };
 struct feature_config { ... };
 
+// Concepts use _like suffix
+template<typename T>
+concept matcher_like = requires(T m) { ... };
+
 // WRONG - Flag as REQUIRED CHANGE
 auto calculateIoU() -> float;       // camelCase function
 float ratioThreshold_;              // camelCase variable
 struct MotionEstimate { ... };      // PascalCase type
 class FeatureConfig { ... };        // PascalCase + class
+concept Matcher = ...;              // PascalCase concept, missing _like
 ```
 
 ### struct over class (MUST CHECK)
@@ -202,6 +207,7 @@ EXPECT_FLOAT_EQ(points[0].x, 50.0f);  // No size check!
 | `calculateIoU` | camelCase | `calculate_iou` |
 | `MotionEstimate` | PascalCase type | `motion_estimate` |
 | `class Foo` | Using class | `struct foo` |
+| `concept Matcher` | Bad concept name | `concept matcher_like` |
 | `throw std::runtime_error` | Exceptions | `tl::unexpected(...)` |
 | `int foo()` | Missing attributes | `[[nodiscard]] auto foo() -> int` |
 | `static const` | Not constexpr | `constexpr` |

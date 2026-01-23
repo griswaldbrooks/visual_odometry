@@ -43,9 +43,16 @@ auto calculate_iou(cv::Mat const& mask1, cv::Mat const& mask2) -> float;
 auto const match_result = matcher.match(desc1, desc2);
 float ratio_threshold_;
 
-// Types: snake_case (will be enforced by clang-tidy)
+// Types: snake_case (enforced by clang-tidy)
 struct motion_estimate { ... };
 struct feature_matcher { ... };
+
+// Concepts: snake_case with _like suffix
+template<typename T>
+concept matcher_like = requires(T m) { ... };
+
+template<typename T>
+concept image_loader_like = requires(T l) { ... };
 ```
 
 ### Trailing Return Types
