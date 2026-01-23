@@ -1,5 +1,17 @@
 # Visual Odometry Project Standards
 
+## Agent Delegation Policy
+
+**IMPORTANT**: Delegate ALL tasks to the specialized agents in `.claude/agents/`:
+- **project-manager** - High-level coordination and orchestration of complex tasks
+- **coder** - Implementation and code writing tasks
+- **code-reviewer** - Code quality reviews before committing
+- **test-runner** - Running and validating tests
+
+Always use the Task tool with the appropriate `subagent_type` to delegate work to these agents.
+
+---
+
 This document defines the C++ coding standards and best practices for this project. It follows the "Jason Turner style" of modern C++20 with emphasis on const-correctness, compile-time computation, and type safety.
 
 ## Quick Reference
