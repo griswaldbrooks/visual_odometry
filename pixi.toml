@@ -36,6 +36,7 @@ libstdcxx-ng = "*"
 # Visual odometry dependencies
 opencv = ">=4.8"
 eigen = ">=3.4"
+onnxruntime-cpp = ">=1.16"
 
 # Testing
 gtest = ">=1.14"

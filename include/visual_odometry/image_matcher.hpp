@@ -5,8 +5,14 @@
 #include <opencv2/core.hpp>
 #include <filesystem>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
+
+// Forward declaration for OnnxSession (only available when onnxruntime is linked)
+namespace visual_odometry {
+class OnnxSession;
+}
 
 namespace visual_odometry {
 
@@ -97,8 +103,44 @@ private:
 };
 
 /**
+ * @brief LightGlue learned feature matcher using ONNX Runtime.
+ *
+ * Uses the DISK+LightGlue fused model for end-to-end learned matching.
+ * Requires ONNX Runtime and a pre-exported ONNX model file.
+ */
+class LightGlueImageMatcher : public ImageMatcher {
+public:
+    /**
+     * @brief Construct LightGlue matcher from an ONNX model file.
+     * @param model_path Path to the disk_lightglue_end2end.onnx model file.
+     * @throws std::runtime_error if model loading fails.
+     */
+    explicit LightGlueImageMatcher(
+        std::filesystem::path model_path = "models/disk_lightglue_end2end.onnx");
+
+    // Move-only (contains unique_ptr to OnnxSession)
+    LightGlueImageMatcher(LightGlueImageMatcher const&) = delete;
+    auto operator=(LightGlueImageMatcher const&) -> LightGlueImageMatcher& = delete;
+    LightGlueImageMatcher(LightGlueImageMatcher&&) noexcept;
+    auto operator=(LightGlueImageMatcher&&) noexcept -> LightGlueImageMatcher&;
+    ~LightGlueImageMatcher() override;
+
+    [[nodiscard]] auto match_images(cv::Mat const& img1,
+                                    cv::Mat const& img2) const
+        -> MatchResult override;
+
+    [[nodiscard]] auto name() const -> std::string_view override {
+        return "LightGlue";
+    }
+
+private:
+    std::filesystem::path model_path_;
+    std::unique_ptr<OnnxSession> session_;
+};
+
+/**
  * @brief Factory function to create a matcher by name.
- * @param name Matcher name: "orb" (default), "matchanything".
+ * @param name Matcher name: "orb" (default), "matchanything", "lightglue".
  * @return Unique pointer to the matcher, or nullptr if unknown.
  */
 [[nodiscard]] auto create_matcher(std::string_view name)

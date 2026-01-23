@@ -36,6 +36,37 @@ find_package(GTest REQUIRED)
 find_package(OpenCV REQUIRED)
 find_package(Eigen3 REQUIRED)
 
+# Find ONNX Runtime (from conda/pixi environment)
+if(DEFINED ENV{CONDA_PREFIX})
+  set(ONNXRUNTIME_ROOT "$ENV{CONDA_PREFIX}")
+  find_path(ONNXRUNTIME_INCLUDE_DIR
+    NAMES onnxruntime_cxx_api.h
+    PATHS "${ONNXRUNTIME_ROOT}/include/onnxruntime/core/session"
+    NO_DEFAULT_PATH
+  )
+  find_library(ONNXRUNTIME_LIBRARY
+    NAMES onnxruntime
+    PATHS "${ONNXRUNTIME_ROOT}/lib"
+    NO_DEFAULT_PATH
+  )
+  if(ONNXRUNTIME_INCLUDE_DIR AND ONNXRUNTIME_LIBRARY)
+    message(STATUS "Found ONNX Runtime: ${ONNXRUNTIME_LIBRARY}")
+    message(STATUS "ONNX Runtime include: ${ONNXRUNTIME_INCLUDE_DIR}")
+    add_library(onnxruntime::onnxruntime SHARED IMPORTED)
+    set_target_properties(onnxruntime::onnxruntime PROPERTIES
+      IMPORTED_LOCATION "${ONNXRUNTIME_LIBRARY}"
+      INTERFACE_INCLUDE_DIRECTORIES "${ONNXRUNTIME_ROOT}/include/onnxruntime/core/session;${ONNXRUNTIME_ROOT}/include"
+    )
+    set(ONNXRUNTIME_FOUND TRUE)
+  else()
+    message(WARNING "ONNX Runtime not found in CONDA_PREFIX")
+    set(ONNXRUNTIME_FOUND FALSE)
+  endif()
+else()
+  message(WARNING "CONDA_PREFIX not set, ONNX Runtime detection skipped")
+  set(ONNXRUNTIME_FOUND FALSE)
+endif()
+
 # Fetch tl::expected (header-only)
 include(FetchContent)
 FetchContent_Declare(
@@ -141,6 +172,7 @@ add_library(visual_odometry_lib
   src/image_matcher.cpp
   src/motion_estimator.cpp
   src/trajectory.cpp
+  $<$<BOOL:${ONNXRUNTIME_FOUND}>:src/onnx_session.cpp>
 )
 add_library(visual_odometry::lib ALIAS visual_odometry_lib)
 
@@ -157,6 +189,7 @@ target_sources(
       include/visual_odometry/image_matcher.hpp
       include/visual_odometry/motion_estimator.hpp
       include/visual_odometry/trajectory.hpp
+      $<$<BOOL:${ONNXRUNTIME_FOUND}>:include/visual_odometry/onnx_session.hpp>
 )
 
 target_compile_features(visual_odometry_lib PUBLIC cxx_std_20)
@@ -176,6 +209,7 @@ target_link_libraries(
     ${OpenCV_LIBS}
     Eigen3::Eigen
     tl::expected
+    $<$<BOOL:${ONNXRUNTIME_FOUND}>:onnxruntime::onnxruntime>
 )
 
 target_include_directories(

@@ -94,6 +94,9 @@
       "description": "Run tests with dev preset",
       "output": {
         "outputOnFailure": true
+      },
+      "environment": {
+        "LSAN_OPTIONS": "suppressions=${sourceDir}/tests/lsan_suppressions.txt"
       }
     },
     {
@@ -112,6 +115,9 @@
       "description": "Run tests in CI",
       "output": {
         "outputOnFailure": true
+      },
+      "environment": {
+        "LSAN_OPTIONS": "suppressions=${sourceDir}/tests/lsan_suppressions.txt"
       }
     }
   ]

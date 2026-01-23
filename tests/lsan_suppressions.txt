@@ -1,0 +1,6 @@
+# Leak Sanitizer suppressions
+# Known leaks in third-party libraries that we can't fix
+
+# ONNX Runtime has static initialization leaks in cpuinfo
+leak:cpuinfo_x86_linux_init
+leak:libonnxruntime
