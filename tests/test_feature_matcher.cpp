@@ -27,9 +27,10 @@ protected:
         image1_ += noise1;
         image2_ += noise2;
 
-        // Detect features
-        auto const result1 = detector_.detect(image1_);
-        auto const result2 = detector_.detect(image2_);
+        // Detect features using pure function API
+        auto const config = visual_odometry::FeatureDetectorConfig{};
+        auto const result1 = visual_odometry::detect_features(image1_, config);
+        auto const result2 = visual_odometry::detect_features(image2_, config);
         keypoints1_ = result1.keypoints;
         keypoints2_ = result2.keypoints;
         descriptors1_ = result1.descriptors;
@@ -42,15 +43,15 @@ protected:
     std::vector<cv::KeyPoint> keypoints2_;
     cv::Mat descriptors1_;
     cv::Mat descriptors2_;
-    visual_odometry::FeatureDetector detector_;
 };
 
 TEST_F(FeatureMatcherTest, MatchesSimilarImages) {
-    // GIVEN a feature matcher
-    visual_odometry::FeatureMatcher matcher;
+    // GIVEN a feature matcher config
+    auto const config = visual_odometry::FeatureMatcherConfig{};
 
     // WHEN matching descriptors from two similar images
-    auto const result = matcher.match(descriptors1_, descriptors2_, keypoints1_, keypoints2_);
+    auto const result = visual_odometry::match_features(
+        descriptors1_, descriptors2_, keypoints1_, keypoints2_, config);
 
     // THEN matches should be found
     EXPECT_GT(result.matches.size(), 0);
@@ -60,9 +61,10 @@ TEST_F(FeatureMatcherTest, MatchesSimilarImages) {
 }
 
 TEST_F(FeatureMatcherTest, MatchedPointsAreConsistent) {
-    // GIVEN a feature matcher with matches
-    visual_odometry::FeatureMatcher matcher;
-    auto const result = matcher.match(descriptors1_, descriptors2_, keypoints1_, keypoints2_);
+    // GIVEN a feature matcher config with matches
+    auto const config = visual_odometry::FeatureMatcherConfig{};
+    auto const result = visual_odometry::match_features(
+        descriptors1_, descriptors2_, keypoints1_, keypoints2_, config);
 
     // WHEN examining each match
     for (size_t i = 0; i < result.matches.size(); ++i) {
@@ -78,31 +80,35 @@ TEST_F(FeatureMatcherTest, MatchedPointsAreConsistent) {
 }
 
 TEST_F(FeatureMatcherTest, StricterRatioReducesMatches) {
-    // GIVEN matchers with different ratio thresholds
-    visual_odometry::FeatureMatcher loose_matcher(0.9f);
-    visual_odometry::FeatureMatcher strict_matcher(0.5f);
+    // GIVEN matcher configs with different ratio thresholds
+    auto const loose_config = visual_odometry::FeatureMatcherConfig{.ratio_threshold = 0.9f};
+    auto const strict_config = visual_odometry::FeatureMatcherConfig{.ratio_threshold = 0.5f};
 
     // WHEN matching with each
-    auto const loose_result = loose_matcher.match(descriptors1_, descriptors2_, keypoints1_, keypoints2_);
-    auto const strict_result = strict_matcher.match(descriptors1_, descriptors2_, keypoints1_, keypoints2_);
+    auto const loose_result = visual_odometry::match_features(
+        descriptors1_, descriptors2_, keypoints1_, keypoints2_, loose_config);
+    auto const strict_result = visual_odometry::match_features(
+        descriptors1_, descriptors2_, keypoints1_, keypoints2_, strict_config);
 
     // THEN stricter threshold should produce fewer matches
     EXPECT_GE(loose_result.matches.size(), strict_result.matches.size());
 }
 
 TEST_F(FeatureMatcherTest, HandlesEmptyDescriptors) {
-    // GIVEN a feature matcher
-    visual_odometry::FeatureMatcher matcher;
+    // GIVEN a feature matcher config
+    auto const config = visual_odometry::FeatureMatcherConfig{};
     cv::Mat const empty_desc;
 
     // WHEN matching with empty first descriptors
-    auto result = matcher.match(empty_desc, descriptors2_, {}, keypoints2_);
+    auto result = visual_odometry::match_features(
+        empty_desc, descriptors2_, {}, keypoints2_, config);
 
     // THEN no matches should be returned
     EXPECT_EQ(result.matches.size(), 0);
 
     // WHEN matching with empty second descriptors
-    result = matcher.match(descriptors1_, empty_desc, keypoints1_, {});
+    result = visual_odometry::match_features(
+        descriptors1_, empty_desc, keypoints1_, {}, config);
 
     // THEN no matches should be returned
     EXPECT_EQ(result.matches.size(), 0);
@@ -110,11 +116,12 @@ TEST_F(FeatureMatcherTest, HandlesEmptyDescriptors) {
 
 TEST_F(FeatureMatcherTest, DrawsMatches) {
     // GIVEN matched features
-    visual_odometry::FeatureMatcher matcher;
-    auto const result = matcher.match(descriptors1_, descriptors2_, keypoints1_, keypoints2_);
+    auto const config = visual_odometry::FeatureMatcherConfig{};
+    auto const result = visual_odometry::match_features(
+        descriptors1_, descriptors2_, keypoints1_, keypoints2_, config);
 
     // WHEN drawing matches
-    cv::Mat const output = visual_odometry::FeatureMatcher::draw_matches(
+    cv::Mat const output = visual_odometry::draw_feature_matches(
         image1_, keypoints1_, image2_, keypoints2_, result.matches);
 
     // THEN output should be a valid side-by-side image

@@ -101,17 +101,19 @@ auto preprocess_image_for_lightglue(cv::Mat const& img)
 }  // namespace
 
 OrbImageMatcher::OrbImageMatcher(int max_features, float ratio_threshold)
-    : detector_(max_features), matcher_(ratio_threshold) {}
+    : detector_config_{.max_features = max_features}
+    , matcher_config_{.ratio_threshold = ratio_threshold} {}
 
 auto OrbImageMatcher::match_images(cv::Mat const& img1,
                                    cv::Mat const& img2) const -> MatchResult {
     // Detect features in both images
-    auto const det1 = detector_.detect(img1);
-    auto const det2 = detector_.detect(img2);
+    auto const det1 = detect_features(img1, detector_config_);
+    auto const det2 = detect_features(img2, detector_config_);
 
     // Match features
-    return matcher_.match(det1.descriptors, det2.descriptors,
-                          det1.keypoints, det2.keypoints);
+    return match_features(det1.descriptors, det2.descriptors,
+                          det1.keypoints, det2.keypoints,
+                          matcher_config_);
 }
 
 MatchAnythingMatcher::MatchAnythingMatcher(std::filesystem::path script_path,

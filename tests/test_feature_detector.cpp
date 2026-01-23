@@ -23,22 +23,22 @@ protected:
 };
 
 TEST_F(FeatureDetectorTest, DetectsKeypoints) {
-    // GIVEN a feature detector with default settings
-    visual_odometry::FeatureDetector detector;
+    // GIVEN a feature detector config with default settings
+    auto const config = visual_odometry::FeatureDetectorConfig{};
 
     // WHEN detecting keypoints in a textured image
-    auto const keypoints = detector.detect_keypoints(test_image_);
+    auto const keypoints = visual_odometry::detect_keypoints_only(test_image_, config);
 
     // THEN keypoints should be detected
     EXPECT_GT(keypoints.size(), 0);
 }
 
 TEST_F(FeatureDetectorTest, DetectsKeypointsAndDescriptors) {
-    // GIVEN a feature detector
-    visual_odometry::FeatureDetector detector;
+    // GIVEN a feature detector config
+    auto const config = visual_odometry::FeatureDetectorConfig{};
 
     // WHEN detecting features with descriptors
-    auto const result = detector.detect(test_image_);
+    auto const result = visual_odometry::detect_features(test_image_, config);
 
     // THEN keypoints and descriptors should be returned
     EXPECT_GT(result.keypoints.size(), 0);
@@ -50,12 +50,12 @@ TEST_F(FeatureDetectorTest, DetectsKeypointsAndDescriptors) {
 }
 
 TEST_F(FeatureDetectorTest, RespectsMaxFeatures) {
-    // GIVEN a detector with limited max features
+    // GIVEN a detector config with limited max features
     int const max_features = 100;
-    visual_odometry::FeatureDetector detector(max_features);
+    auto const config = visual_odometry::FeatureDetectorConfig{.max_features = max_features};
 
     // WHEN detecting keypoints
-    auto const keypoints = detector.detect_keypoints(test_image_);
+    auto const keypoints = visual_odometry::detect_keypoints_only(test_image_, config);
 
     // THEN keypoint count should not exceed max_features
     EXPECT_LE(keypoints.size(), static_cast<size_t>(max_features));
@@ -63,11 +63,11 @@ TEST_F(FeatureDetectorTest, RespectsMaxFeatures) {
 
 TEST_F(FeatureDetectorTest, DrawsKeypoints) {
     // GIVEN detected keypoints
-    visual_odometry::FeatureDetector detector;
-    auto const keypoints = detector.detect_keypoints(test_image_);
+    auto const config = visual_odometry::FeatureDetectorConfig{};
+    auto const keypoints = visual_odometry::detect_keypoints_only(test_image_, config);
 
     // WHEN drawing keypoints
-    cv::Mat const output = visual_odometry::FeatureDetector::draw_keypoints(test_image_, keypoints);
+    cv::Mat const output = visual_odometry::draw_keypoints(test_image_, keypoints);
 
     // THEN output should be a valid color image
     EXPECT_FALSE(output.empty());
@@ -75,24 +75,24 @@ TEST_F(FeatureDetectorTest, DrawsKeypoints) {
 }
 
 TEST_F(FeatureDetectorTest, HandlesEmptyImage) {
-    // GIVEN an empty image
-    visual_odometry::FeatureDetector detector;
+    // GIVEN an empty image and config
+    auto const config = visual_odometry::FeatureDetectorConfig{};
     cv::Mat const empty_image;
 
     // WHEN detecting keypoints
-    auto const keypoints = detector.detect_keypoints(empty_image);
+    auto const keypoints = visual_odometry::detect_keypoints_only(empty_image, config);
 
     // THEN no keypoints should be returned
     EXPECT_EQ(keypoints.size(), 0);
 }
 
 TEST_F(FeatureDetectorTest, HandlesUniformImage) {
-    // GIVEN a uniform (featureless) image
-    visual_odometry::FeatureDetector detector;
+    // GIVEN a uniform (featureless) image and config
+    auto const config = visual_odometry::FeatureDetectorConfig{};
     cv::Mat const uniform_image(480, 640, CV_8UC1, cv::Scalar(128));
 
     // WHEN detecting keypoints
-    auto const keypoints = detector.detect_keypoints(uniform_image);
+    auto const keypoints = visual_odometry::detect_keypoints_only(uniform_image, config);
 
     // THEN very few or no keypoints should be found
     EXPECT_LT(keypoints.size(), 10);

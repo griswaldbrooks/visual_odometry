@@ -65,8 +65,8 @@ public:
     }
 
 private:
-    FeatureDetector detector_;
-    FeatureMatcher matcher_;
+    FeatureDetectorConfig detector_config_;
+    FeatureMatcherConfig matcher_config_;
 };
 
 /**
