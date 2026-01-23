@@ -38,18 +38,33 @@ const auto& points = result.points;
 for (const auto& item : collection) { ... }
 ```
 
-### snake_case (MUST CHECK)
+### snake_case for ALL identifiers (MUST CHECK)
 
 ```cpp
-// CORRECT
+// CORRECT - snake_case for functions, variables, AND types
 auto calculate_iou() -> float;
 float ratio_threshold_;
 auto match_result = matcher.match(...);
+struct motion_estimate { ... };
+struct feature_config { ... };
 
 // WRONG - Flag as REQUIRED CHANGE
-auto calculateIoU() -> float;
-float ratioThreshold_;
-auto matchResult = matcher.match(...);
+auto calculateIoU() -> float;       // camelCase function
+float ratioThreshold_;              // camelCase variable
+struct MotionEstimate { ... };      // PascalCase type
+class FeatureConfig { ... };        // PascalCase + class
+```
+
+### struct over class (MUST CHECK)
+
+```cpp
+// CORRECT - always use struct
+struct image_matcher { ... };
+struct motion_config { ... };
+
+// WRONG - Flag as REQUIRED CHANGE
+class image_matcher { ... };        // Never use class
+class motion_config { ... };
 ```
 
 ### tl::expected Error Handling
@@ -171,7 +186,8 @@ EXPECT_FLOAT_EQ(points[0].x, 50.0f);  // No size check!
 **STYLE COMPLIANCE**:
 
 - [ ] East const throughout
-- [ ] snake_case naming
+- [ ] snake_case for ALL identifiers (including types)
+- [ ] struct used everywhere (no class keyword)
 - [ ] Trailing return types
 - [ ] [[nodiscard]] on value returns
 - [ ] tl::expected for errors
@@ -184,6 +200,8 @@ EXPECT_FLOAT_EQ(points[0].x, 50.0f);  // No size check!
 |---------|-------|-----|
 | `const int` | West const | `int const` |
 | `calculateIoU` | camelCase | `calculate_iou` |
+| `MotionEstimate` | PascalCase type | `motion_estimate` |
+| `class Foo` | Using class | `struct foo` |
 | `throw std::runtime_error` | Exceptions | `tl::unexpected(...)` |
 | `int foo()` | Missing attributes | `[[nodiscard]] auto foo() -> int` |
 | `static const` | Not constexpr | `constexpr` |

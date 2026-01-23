@@ -38,14 +38,14 @@ const int value = 42;
 ### snake_case Naming
 
 ```cpp
-// Functions and variables: snake_case
+// Functions, variables, AND types: snake_case
 auto calculate_iou(cv::Mat const& mask1, cv::Mat const& mask2) -> float;
 auto const match_result = matcher.match(desc1, desc2);
 float ratio_threshold_;
 
-// Types: PascalCase
-struct MotionEstimate { ... };
-class FeatureMatcher { ... };
+// Types: snake_case (will be enforced by clang-tidy)
+struct motion_estimate { ... };
+struct feature_matcher { ... };
 ```
 
 ### Trailing Return Types
@@ -139,30 +139,35 @@ auto process(T const& value) {
 [[nodiscard]] auto process_points(std::span<cv::Point2f const> points) -> Result;
 ```
 
-## Class Design
+## Struct Design (Always Use struct, Never class)
+
+**ALWAYS use `struct` instead of `class`.** The only difference is default access, and we prefer explicit `public:`/`private:` sections anyway.
 
 ```cpp
-// struct for data types, with private section for encapsulation
-struct FeatureMatcher {
+// CORRECT - always use struct
+struct feature_matcher {
 public:
-    explicit FeatureMatcher(float ratio_threshold = 0.75f);
+    explicit feature_matcher(float ratio_threshold = 0.75f);
 
     [[nodiscard]] auto match(cv::Mat const& desc1,
                               cv::Mat const& desc2,
                               std::vector<cv::KeyPoint> const& kp1,
                               std::vector<cv::KeyPoint> const& kp2) const
-        -> tl::expected<MatchResult, std::string>;
+        -> tl::expected<match_result, std::string>;
 
 private:
     cv::Ptr<cv::BFMatcher> matcher_;
     float ratio_threshold_;
 };
 
-// Use final for non-inheritable types
-struct MotionEstimator final { ... };
+// WRONG - never use class
+class feature_matcher { ... };
 
-// Initialize all members
-struct Config {
+// Use final for non-inheritable types
+struct motion_estimator final { ... };
+
+// Config structs - all public, no private section needed
+struct config {
     int max_features{2000};
     float threshold{0.75f};
     bool verbose{false};
@@ -172,21 +177,21 @@ struct Config {
 ## Dependency Injection
 
 ```cpp
-// Define interface for testability
-struct InferenceHandle {
-    virtual ~InferenceHandle() = default;
+// Define interface for testability (use struct, not class)
+struct inference_handle {
+    virtual ~inference_handle() = default;
 
     [[nodiscard]] virtual auto predict(cv::Mat const& image)
-        -> tl::expected<Result, std::string> = 0;
+        -> tl::expected<result, std::string> = 0;
 };
 
 // Inject dependencies via constructor
-struct VisualOdometry {
-    explicit VisualOdometry(std::shared_ptr<InferenceHandle> handle)
+struct visual_odometry {
+    explicit visual_odometry(std::shared_ptr<inference_handle> handle)
         : handle_(std::move(handle)) {}
 
 private:
-    std::shared_ptr<InferenceHandle> handle_;
+    std::shared_ptr<inference_handle> handle_;
 };
 ```
 
@@ -227,24 +232,25 @@ TEST(GridGeneration, SinglePoint) {
 ### Parameterized Tests
 
 ```cpp
-struct TestCase {
+struct test_case {
     int width;
     int height;
     int expected;
 };
 
-class ImageTest : public ::testing::TestWithParam<TestCase> {};
+// Note: GoogleTest requires PascalCase for test fixture class names
+struct image_test : ::testing::TestWithParam<test_case> {};
 
-TEST_P(ImageTest, ProcessesCorrectly) {
+TEST_P(image_test, ProcessesCorrectly) {
     auto const& params = GetParam();
     // GIVEN / WHEN / THEN ...
 }
 
 INSTANTIATE_TEST_SUITE_P(
-    DifferentSizes, ImageTest,
+    DifferentSizes, image_test,
     ::testing::Values(
-        TestCase{640, 480, 307200},
-        TestCase{1920, 1080, 2073600}
+        test_case{640, 480, 307200},
+        test_case{1920, 1080, 2073600}
     )
 );
 ```
@@ -270,7 +276,8 @@ pixi run tidy
 Before considering code complete:
 
 - [ ] **East const** used throughout (`type const&`)
-- [ ] **snake_case** for functions/variables, PascalCase for types
+- [ ] **snake_case** for ALL identifiers (functions, variables, AND types)
+- [ ] **struct** used everywhere (never use `class`)
 - [ ] **Trailing return types** on all functions
 - [ ] **[[nodiscard]]** on all value-returning functions
 - [ ] **tl::expected** for all fallible operations
