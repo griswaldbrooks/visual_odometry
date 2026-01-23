@@ -222,6 +222,10 @@ target_include_directories(
 if(NOT ENABLE_COVERAGE)
   add_executable(visual_odometry src/main.cpp)
   target_link_libraries(visual_odometry PRIVATE visual_odometry::lib)
+
+  # Benchmark executable
+  add_executable(benchmark_matchers benchmarks/benchmark_matchers.cpp)
+  target_link_libraries(benchmark_matchers PRIVATE visual_odometry::lib)
 endif()
 
 # Testing

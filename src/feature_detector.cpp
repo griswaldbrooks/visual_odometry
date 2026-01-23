@@ -3,25 +3,30 @@
 
 namespace visual_odometry {
 
-FeatureDetector::FeatureDetector(int max_features)
-    : orb_(cv::ORB::create(max_features)) {}
+// Pure functional implementations
 
-auto FeatureDetector::detect(cv::Mat const& image) const -> DetectionResult {
+[[nodiscard]] auto detect_features(cv::Mat const& image,
+                                    FeatureDetectorConfig const& config)
+    -> DetectionResult
+{
+    auto const orb = cv::ORB::create(config.max_features);
     DetectionResult result;
-    orb_->detectAndCompute(image, cv::noArray(), result.keypoints, result.descriptors);
+    orb->detectAndCompute(image, cv::noArray(), result.keypoints, result.descriptors);
     return result;
 }
 
-auto FeatureDetector::detect_keypoints(cv::Mat const& image) const
+[[nodiscard]] auto detect_keypoints_only(cv::Mat const& image,
+                                         FeatureDetectorConfig const& config)
     -> std::vector<cv::KeyPoint>
 {
+    auto const orb = cv::ORB::create(config.max_features);
     std::vector<cv::KeyPoint> keypoints;
-    orb_->detect(image, keypoints);
+    orb->detect(image, keypoints);
     return keypoints;
 }
 
-auto FeatureDetector::draw_keypoints(cv::Mat const& image,
-                                      std::vector<cv::KeyPoint> const& keypoints)
+[[nodiscard]] auto draw_keypoints(cv::Mat const& image,
+                                   std::vector<cv::KeyPoint> const& keypoints)
     -> cv::Mat
 {
     cv::Mat output;
