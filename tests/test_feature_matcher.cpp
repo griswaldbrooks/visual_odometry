@@ -28,7 +28,7 @@ protected:
         image2_ += noise2;
 
         // Detect features using pure function API
-        auto const config = visual_odometry::FeatureDetectorConfig{};
+        auto const config = visual_odometry::feature_detector_config{};
         auto const result1 = visual_odometry::detect_features(image1_, config);
         auto const result2 = visual_odometry::detect_features(image2_, config);
         keypoints1_ = result1.keypoints;
@@ -47,7 +47,7 @@ protected:
 
 TEST_F(FeatureMatcherTest, MatchesSimilarImages) {
     // GIVEN a feature matcher config
-    auto const config = visual_odometry::FeatureMatcherConfig{};
+    auto const config = visual_odometry::feature_matcher_config{};
 
     // WHEN matching descriptors from two similar images
     auto const result = visual_odometry::match_features(
@@ -62,7 +62,7 @@ TEST_F(FeatureMatcherTest, MatchesSimilarImages) {
 
 TEST_F(FeatureMatcherTest, MatchedPointsAreConsistent) {
     // GIVEN a feature matcher config with matches
-    auto const config = visual_odometry::FeatureMatcherConfig{};
+    auto const config = visual_odometry::feature_matcher_config{};
     auto const result = visual_odometry::match_features(
         descriptors1_, descriptors2_, keypoints1_, keypoints2_, config);
 
@@ -81,8 +81,8 @@ TEST_F(FeatureMatcherTest, MatchedPointsAreConsistent) {
 
 TEST_F(FeatureMatcherTest, StricterRatioReducesMatches) {
     // GIVEN matcher configs with different ratio thresholds
-    auto const loose_config = visual_odometry::FeatureMatcherConfig{.ratio_threshold = 0.9f};
-    auto const strict_config = visual_odometry::FeatureMatcherConfig{.ratio_threshold = 0.5f};
+    auto const loose_config = visual_odometry::feature_matcher_config{.ratio_threshold = 0.9f};
+    auto const strict_config = visual_odometry::feature_matcher_config{.ratio_threshold = 0.5f};
 
     // WHEN matching with each
     auto const loose_result = visual_odometry::match_features(
@@ -96,7 +96,7 @@ TEST_F(FeatureMatcherTest, StricterRatioReducesMatches) {
 
 TEST_F(FeatureMatcherTest, HandlesEmptyDescriptors) {
     // GIVEN a feature matcher config
-    auto const config = visual_odometry::FeatureMatcherConfig{};
+    auto const config = visual_odometry::feature_matcher_config{};
     cv::Mat const empty_desc;
 
     // WHEN matching with empty first descriptors
@@ -116,7 +116,7 @@ TEST_F(FeatureMatcherTest, HandlesEmptyDescriptors) {
 
 TEST_F(FeatureMatcherTest, DrawsMatches) {
     // GIVEN matched features
-    auto const config = visual_odometry::FeatureMatcherConfig{};
+    auto const config = visual_odometry::feature_matcher_config{};
     auto const result = visual_odometry::match_features(
         descriptors1_, descriptors2_, keypoints1_, keypoints2_, config);
 

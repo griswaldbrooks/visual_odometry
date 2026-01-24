@@ -86,7 +86,7 @@ int main(int argc, char* argv[]) {
               << "  Max frames: " << (args->max_frames > 0 ? std::to_string(args->max_frames) : "all") << "\n\n";
 
     // Load camera intrinsics
-    auto intrinsics_result = visual_odometry::CameraIntrinsics::load_from_yaml(args->camera_yaml);
+    auto intrinsics_result = visual_odometry::camera_intrinsics::load_from_yaml(args->camera_yaml);
     if (!intrinsics_result) {
         std::cerr << "Error: " << intrinsics_result.error() << "\n";
         return 1;
@@ -119,7 +119,7 @@ int main(int argc, char* argv[]) {
     }
     std::cout << "Using matcher: " << std::visit([](auto const& m) { return m.name(); }, matcher) << "\n";
 
-    visual_odometry::MotionEstimatorConfig const config{};
+    visual_odometry::motion_estimator_config const config{};
     visual_odometry::Trajectory trajectory;
 
     // Determine number of frames to process
@@ -143,7 +143,7 @@ int main(int argc, char* argv[]) {
 
         // Match features between images
         auto const match_result = std::visit(
-            [&](visual_odometry::matcher auto const& m) {
+            [&](visual_odometry::matcher_like auto const& m) {
                 return m.match_images(img1, img2);
             },
             matcher);

@@ -23,21 +23,21 @@ WarningsAsErrors: ''
 HeaderFilterRegex: '(include|src)/.*\.(h|hpp)$'
 
 CheckOptions:
-  # Naming conventions: snake_case for functions/variables, PascalCase for types
+  # Naming conventions: snake_case for everything
   - key: readability-identifier-naming.NamespaceCase
     value: lower_case
   - key: readability-identifier-naming.ClassCase
-    value: CamelCase
+    value: lower_case
   - key: readability-identifier-naming.StructCase
-    value: CamelCase
+    value: lower_case
   - key: readability-identifier-naming.EnumCase
-    value: CamelCase
+    value: lower_case
   - key: readability-identifier-naming.TypeAliasCase
-    value: CamelCase
+    value: lower_case
   - key: readability-identifier-naming.TypedefCase
-    value: CamelCase
+    value: lower_case
   - key: readability-identifier-naming.UnionCase
-    value: CamelCase
+    value: lower_case
   - key: readability-identifier-naming.FunctionCase
     value: lower_case
   - key: readability-identifier-naming.VariableCase
@@ -63,11 +63,13 @@ CheckOptions:
   - key: readability-identifier-naming.StaticConstantCase
     value: lower_case
   - key: readability-identifier-naming.EnumConstantCase
-    value: CamelCase
+    value: lower_case
   - key: readability-identifier-naming.TemplateParameterCase
     value: CamelCase
   - key: readability-identifier-naming.ConceptCase
-    value: CamelCase
+    value: lower_case
+  - key: readability-identifier-naming.ConceptSuffix
+    value: '_like'
 
   # Modernize settings
   - key: modernize-use-auto.MinTypeNameLength

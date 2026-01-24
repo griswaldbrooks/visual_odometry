@@ -24,7 +24,7 @@ protected:
 
 TEST_F(FeatureDetectorTest, DetectsKeypoints) {
     // GIVEN a feature detector config with default settings
-    auto const config = visual_odometry::FeatureDetectorConfig{};
+    auto const config = visual_odometry::feature_detector_config{};
 
     // WHEN detecting keypoints in a textured image
     auto const keypoints = visual_odometry::detect_keypoints_only(test_image_, config);
@@ -35,7 +35,7 @@ TEST_F(FeatureDetectorTest, DetectsKeypoints) {
 
 TEST_F(FeatureDetectorTest, DetectsKeypointsAndDescriptors) {
     // GIVEN a feature detector config
-    auto const config = visual_odometry::FeatureDetectorConfig{};
+    auto const config = visual_odometry::feature_detector_config{};
 
     // WHEN detecting features with descriptors
     auto const result = visual_odometry::detect_features(test_image_, config);
@@ -52,7 +52,7 @@ TEST_F(FeatureDetectorTest, DetectsKeypointsAndDescriptors) {
 TEST_F(FeatureDetectorTest, RespectsMaxFeatures) {
     // GIVEN a detector config with limited max features
     int const max_features = 100;
-    auto const config = visual_odometry::FeatureDetectorConfig{.max_features = max_features};
+    auto const config = visual_odometry::feature_detector_config{.max_features = max_features};
 
     // WHEN detecting keypoints
     auto const keypoints = visual_odometry::detect_keypoints_only(test_image_, config);
@@ -63,7 +63,7 @@ TEST_F(FeatureDetectorTest, RespectsMaxFeatures) {
 
 TEST_F(FeatureDetectorTest, DrawsKeypoints) {
     // GIVEN detected keypoints
-    auto const config = visual_odometry::FeatureDetectorConfig{};
+    auto const config = visual_odometry::feature_detector_config{};
     auto const keypoints = visual_odometry::detect_keypoints_only(test_image_, config);
 
     // WHEN drawing keypoints
@@ -76,7 +76,7 @@ TEST_F(FeatureDetectorTest, DrawsKeypoints) {
 
 TEST_F(FeatureDetectorTest, HandlesEmptyImage) {
     // GIVEN an empty image and config
-    auto const config = visual_odometry::FeatureDetectorConfig{};
+    auto const config = visual_odometry::feature_detector_config{};
     cv::Mat const empty_image;
 
     // WHEN detecting keypoints
@@ -88,7 +88,7 @@ TEST_F(FeatureDetectorTest, HandlesEmptyImage) {
 
 TEST_F(FeatureDetectorTest, HandlesUniformImage) {
     // GIVEN a uniform (featureless) image and config
-    auto const config = visual_odometry::FeatureDetectorConfig{};
+    auto const config = visual_odometry::feature_detector_config{};
     cv::Mat const uniform_image(480, 640, CV_8UC1, cv::Scalar(128));
 
     // WHEN detecting keypoints

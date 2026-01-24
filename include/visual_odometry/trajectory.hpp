@@ -12,21 +12,21 @@ namespace visual_odometry {
 /**
  * @brief Represents an absolute camera pose in the world frame.
  */
-struct Pose {
+struct pose {
     Eigen::Matrix3d rotation{Eigen::Matrix3d::Identity()};
     Eigen::Vector3d translation{Eigen::Vector3d::Zero()};
 
     /**
      * @brief Create identity pose (origin).
      */
-    [[nodiscard]] static auto identity() noexcept -> Pose;
+    [[nodiscard]] static auto identity() noexcept -> pose;
 
     /**
      * @brief Compose this pose with a relative transform.
      * @param relative The relative motion (R, t) from this pose.
      * @return New absolute pose after applying the relative transform.
      */
-    [[nodiscard]] auto compose(MotionEstimate const& relative) const noexcept -> Pose;
+    [[nodiscard]] auto compose(motion_estimate const& relative) const noexcept -> pose;
 };
 
 /**
@@ -44,18 +44,18 @@ public:
      * @param motion Relative motion from current to next frame.
      * @return true if motion was valid and added, false otherwise.
      */
-    auto add_motion(MotionEstimate const& motion) -> bool;
+    auto add_motion(motion_estimate const& motion) -> bool;
 
     /**
      * @brief Get all poses in the trajectory.
      * @return Vector of absolute poses, starting from origin.
      */
-    [[nodiscard]] auto poses() const noexcept -> std::vector<Pose> const&;
+    [[nodiscard]] auto poses() const noexcept -> std::vector<pose> const&;
 
     /**
      * @brief Get the current (latest) pose.
      */
-    [[nodiscard]] auto current_pose() const noexcept -> Pose const&;
+    [[nodiscard]] auto current_pose() const noexcept -> pose const&;
 
     /**
      * @brief Get the number of poses in the trajectory.
@@ -87,7 +87,7 @@ public:
     [[nodiscard]] auto to_json() const -> std::string;
 
 private:
-    std::vector<Pose> poses_;
+    std::vector<pose> poses_;
 };
 
 }  // namespace visual_odometry

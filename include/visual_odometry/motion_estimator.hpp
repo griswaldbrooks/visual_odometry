@@ -21,7 +21,7 @@ constexpr auto min_essential_points = 5;
 /**
  * @brief Camera intrinsic parameters.
  */
-struct CameraIntrinsics {
+struct camera_intrinsics {
     double fx;  ///< Focal length x
     double fy;  ///< Focal length y
     double cx;  ///< Principal point x
@@ -35,16 +35,16 @@ struct CameraIntrinsics {
     /**
      * @brief Load intrinsics from YAML file.
      * @param filepath Path to YAML file.
-     * @return CameraIntrinsics or error message.
+     * @return camera_intrinsics or error message.
      */
     [[nodiscard]] static auto load_from_yaml(std::string_view filepath)
-        -> tl::expected<CameraIntrinsics, std::string>;
+        -> tl::expected<camera_intrinsics, std::string>;
 };
 
 /**
  * @brief Configuration parameters for motion estimation.
  */
-struct MotionEstimatorConfig {
+struct motion_estimator_config {
     double ransac_threshold{1.0};   ///< RANSAC reprojection threshold in pixels
     double ransac_confidence{0.999}; ///< RANSAC confidence level (0-1)
 };
@@ -52,7 +52,7 @@ struct MotionEstimatorConfig {
 /**
  * @brief Result of motion estimation between two frames.
  */
-struct MotionEstimate {
+struct motion_estimate {
     Eigen::Matrix3d rotation;     ///< Rotation matrix (R)
     Eigen::Vector3d translation;  ///< Translation vector (t), unit norm
     int inliers;                  ///< Number of RANSAC inliers
@@ -65,12 +65,12 @@ struct MotionEstimate {
  * @param points2 Corresponding points in second image.
  * @param intrinsics Camera intrinsic parameters.
  * @param config Configuration for RANSAC parameters.
- * @return MotionEstimate containing R, t if successful.
+ * @return motion_estimate containing R, t if successful.
  */
 [[nodiscard]] auto estimate_motion(std::span<cv::Point2f const> points1,
                                     std::span<cv::Point2f const> points2,
-                                    CameraIntrinsics const& intrinsics,
-                                    MotionEstimatorConfig const& config = {})
-    -> MotionEstimate;
+                                    camera_intrinsics const& intrinsics,
+                                    motion_estimator_config const& config = {})
+    -> motion_estimate;
 
 }  // namespace visual_odometry

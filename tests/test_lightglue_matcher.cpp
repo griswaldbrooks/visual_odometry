@@ -80,7 +80,7 @@ TEST_F(LightGlueMatcherTest, MatchesSimilarImages) {
     // WHEN matching two similar images
     // Note: Some ONNX models may have operators not supported on CPU
     // (e.g., MultiHeadAttention with packed QKV). Skip if this happens.
-    visual_odometry::MatchResult result;
+    visual_odometry::match_result result;
     try {
         result = matcher.match_images(image1_, image2_);
     } catch (std::exception const& e) {
@@ -103,7 +103,7 @@ TEST_F(LightGlueMatcherTest, PointArraysHaveEqualSize) {
 
     // WHEN matching two images
     // Skip if model has CPU-unsupported operators
-    visual_odometry::MatchResult result;
+    visual_odometry::match_result result;
     try {
         result = matcher.match_images(image1_, image2_);
     } catch (std::exception const& e) {
@@ -142,11 +142,10 @@ TEST(LightGlueMatcherFactoryTest, CanBeCreatedViaFactory) {
     // Note: Factory may use a default path that doesn't work in all contexts
     // This test verifies the factory function itself works
     try {
-        auto matcher = visual_odometry::create_matcher("lightglue");
+        auto matcher = visual_odometry::create_image_matcher("lightglue");
 
-        // THEN matcher should be non-null
-        ASSERT_NE(matcher, nullptr);
-        EXPECT_EQ(matcher->name(), "LightGlue");
+        // THEN matcher should be a lightglue_matcher
+        EXPECT_EQ(std::visit([](auto const& m) { return m.name(); }, matcher), "LightGlue");
     } catch (std::exception const& e) {
         // Factory uses default path which may not be accessible from test directory
         std::string const msg = e.what();

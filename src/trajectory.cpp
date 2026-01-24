@@ -5,25 +5,25 @@
 
 namespace visual_odometry {
 
-auto Pose::identity() noexcept -> Pose {
-    return Pose{Eigen::Matrix3d::Identity(), Eigen::Vector3d::Zero()};
+auto pose::identity() noexcept -> pose {
+    return pose{Eigen::Matrix3d::Identity(), Eigen::Vector3d::Zero()};
 }
 
-auto Pose::compose(MotionEstimate const& relative) const noexcept -> Pose {
+auto pose::compose(motion_estimate const& relative) const noexcept -> pose {
     // T_world_new = T_world_current * T_current_new
     // R_new = R_current * R_relative
     // t_new = R_current * t_relative + t_current
-    Pose result;
+    pose result;
     result.rotation = rotation * relative.rotation;
     result.translation = rotation * relative.translation + translation;
     return result;
 }
 
 Trajectory::Trajectory() {
-    poses_.push_back(Pose::identity());
+    poses_.push_back(pose::identity());
 }
 
-auto Trajectory::add_motion(MotionEstimate const& motion) -> bool {
+auto Trajectory::add_motion(motion_estimate const& motion) -> bool {
     if (!motion.valid) {
         return false;
     }
@@ -33,11 +33,11 @@ auto Trajectory::add_motion(MotionEstimate const& motion) -> bool {
     return true;
 }
 
-auto Trajectory::poses() const noexcept -> std::vector<Pose> const& {
+auto Trajectory::poses() const noexcept -> std::vector<pose> const& {
     return poses_;
 }
 
-auto Trajectory::current_pose() const noexcept -> Pose const& {
+auto Trajectory::current_pose() const noexcept -> pose const& {
     return poses_.back();
 }
 
@@ -51,7 +51,7 @@ auto Trajectory::empty() const noexcept -> bool {
 
 auto Trajectory::reset() noexcept -> void {
     poses_.clear();
-    poses_.push_back(Pose::identity());
+    poses_.push_back(pose::identity());
 }
 
 auto Trajectory::to_json() const -> std::string {

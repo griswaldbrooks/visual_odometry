@@ -8,10 +8,10 @@ namespace visual_odometry {
                                    cv::Mat const& descriptors2,
                                    std::span<cv::KeyPoint const> keypoints1,
                                    std::span<cv::KeyPoint const> keypoints2,
-                                   FeatureMatcherConfig const& config)
-    -> MatchResult
+                                   feature_matcher_config const& config)
+    -> match_result
 {
-    MatchResult result;
+    match_result result;
 
     if (descriptors1.empty() || descriptors2.empty()) {
         return result;

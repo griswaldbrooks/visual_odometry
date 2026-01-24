@@ -13,7 +13,7 @@ constexpr auto default_ratio_threshold = 0.75f;
 /**
  * @brief Result of feature matching between two images.
  */
-struct MatchResult {
+struct match_result {
     std::vector<cv::Point2f> points1;  ///< Matched points in first image
     std::vector<cv::Point2f> points2;  ///< Matched points in second image
     std::vector<cv::DMatch> matches;   ///< Match descriptors
@@ -22,7 +22,7 @@ struct MatchResult {
 /**
  * @brief Configuration for feature matching.
  */
-struct FeatureMatcherConfig {
+struct feature_matcher_config {
     float ratio_threshold{default_ratio_threshold};
 };
 
@@ -35,14 +35,14 @@ struct FeatureMatcherConfig {
  * @param keypoints1 Keypoints from first image.
  * @param keypoints2 Keypoints from second image.
  * @param config Matching configuration.
- * @return MatchResult containing matched points and matches.
+ * @return match_result containing matched points and matches.
  */
 [[nodiscard]] auto match_features(cv::Mat const& descriptors1,
                                    cv::Mat const& descriptors2,
                                    std::span<cv::KeyPoint const> keypoints1,
                                    std::span<cv::KeyPoint const> keypoints2,
-                                   FeatureMatcherConfig const& config = {})
-    -> MatchResult;
+                                   feature_matcher_config const& config = {})
+    -> match_result;
 
 /**
  * @brief Draw matches between two images.

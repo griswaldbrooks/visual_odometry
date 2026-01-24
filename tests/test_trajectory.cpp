@@ -25,9 +25,9 @@ protected:
         invalid_motion_.valid = false;
     }
 
-    visual_odometry::MotionEstimate forward_motion_;
-    visual_odometry::MotionEstimate rotation_motion_;
-    visual_odometry::MotionEstimate invalid_motion_;
+    visual_odometry::motion_estimate forward_motion_;
+    visual_odometry::motion_estimate rotation_motion_;
+    visual_odometry::motion_estimate invalid_motion_;
 };
 
 TEST_F(TrajectoryTest, StartsAtOrigin) {
@@ -143,7 +143,7 @@ TEST_F(TrajectoryTest, ResetsToOrigin) {
 
 TEST(PoseTest, IdentityPoseIsAtOrigin) {
     // GIVEN an identity pose
-    auto const pose = visual_odometry::Pose::identity();
+    auto const pose = visual_odometry::pose::identity();
 
     // THEN rotation should be identity and translation zero
     EXPECT_TRUE(pose.rotation.isIdentity());
@@ -152,12 +152,12 @@ TEST(PoseTest, IdentityPoseIsAtOrigin) {
 
 TEST(PoseTest, ComposeWithIdentityMotionIsUnchanged) {
     // GIVEN a pose
-    visual_odometry::Pose pose;
+    visual_odometry::pose pose;
     pose.rotation = Eigen::AngleAxisd(0.5, Eigen::Vector3d::UnitY()).toRotationMatrix();
     pose.translation = Eigen::Vector3d(1, 2, 3);
 
     // AND an identity motion
-    visual_odometry::MotionEstimate identity_motion;
+    visual_odometry::motion_estimate identity_motion;
     identity_motion.rotation = Eigen::Matrix3d::Identity();
     identity_motion.translation = Eigen::Vector3d::Zero();
     identity_motion.valid = true;

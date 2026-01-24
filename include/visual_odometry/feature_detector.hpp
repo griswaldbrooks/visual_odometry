@@ -12,7 +12,7 @@ constexpr auto default_max_features = 2000;
 /**
  * @brief Result of feature detection containing keypoints and descriptors.
  */
-struct DetectionResult {
+struct detection_result {
     std::vector<cv::KeyPoint> keypoints;
     cv::Mat descriptors;
 };
@@ -20,7 +20,7 @@ struct DetectionResult {
 /**
  * @brief Configuration for feature detection.
  */
-struct FeatureDetectorConfig {
+struct feature_detector_config {
     int max_features{default_max_features};
 };
 
@@ -30,11 +30,11 @@ struct FeatureDetectorConfig {
  * @brief Detect keypoints and compute descriptors.
  * @param image Grayscale input image.
  * @param config Detection configuration.
- * @return DetectionResult containing keypoints and descriptors.
+ * @return detection_result containing keypoints and descriptors.
  */
 [[nodiscard]] auto detect_features(cv::Mat const& image,
-                                    FeatureDetectorConfig const& config = {})
-    -> DetectionResult;
+                                    feature_detector_config const& config = {})
+    -> detection_result;
 
 /**
  * @brief Detect keypoints only (no descriptors).
@@ -43,7 +43,7 @@ struct FeatureDetectorConfig {
  * @return Vector of detected keypoints.
  */
 [[nodiscard]] auto detect_keypoints_only(cv::Mat const& image,
-                                         FeatureDetectorConfig const& config = {})
+                                         feature_detector_config const& config = {})
     -> std::vector<cv::KeyPoint>;
 
 /**

@@ -5,22 +5,22 @@
 
 namespace visual_odometry {
 
-auto CameraIntrinsics::camera_matrix() const -> cv::Mat {
+auto camera_intrinsics::camera_matrix() const -> cv::Mat {
     return (cv::Mat_<double>(3, 3) <<
         fx, 0.0, cx,
         0.0, fy, cy,
         0.0, 0.0, 1.0);
 }
 
-auto CameraIntrinsics::load_from_yaml(std::string_view filepath)
-    -> tl::expected<CameraIntrinsics, std::string>
+auto camera_intrinsics::load_from_yaml(std::string_view filepath)
+    -> tl::expected<camera_intrinsics, std::string>
 {
     cv::FileStorage fs(std::string(filepath), cv::FileStorage::READ);
     if (!fs.isOpened()) {
         return tl::unexpected("Could not open camera file: " + std::string(filepath));
     }
 
-    CameraIntrinsics intrinsics;
+    camera_intrinsics intrinsics;
     fs["fx"] >> intrinsics.fx;
     fs["fy"] >> intrinsics.fy;
     fs["cx"] >> intrinsics.cx;
@@ -31,11 +31,11 @@ auto CameraIntrinsics::load_from_yaml(std::string_view filepath)
 
 auto estimate_motion(std::span<cv::Point2f const> points1,
                      std::span<cv::Point2f const> points2,
-                     CameraIntrinsics const& intrinsics,
-                     MotionEstimatorConfig const& config)
-    -> MotionEstimate
+                     camera_intrinsics const& intrinsics,
+                     motion_estimator_config const& config)
+    -> motion_estimate
 {
-    MotionEstimate result;
+    motion_estimate result;
     result.valid = false;
     result.inliers = 0;
 

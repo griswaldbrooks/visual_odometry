@@ -82,7 +82,7 @@ struct BenchmarkResult {
 [[nodiscard]] auto benchmark_matcher(
     visual_odometry::image_matcher const& matcher,
     visual_odometry::ImageLoader& loader,
-    std::optional<visual_odometry::CameraIntrinsics> const& intrinsics)
+    std::optional<visual_odometry::camera_intrinsics> const& intrinsics)
     -> BenchmarkResult
 {
     BenchmarkResult result;
@@ -105,7 +105,7 @@ struct BenchmarkResult {
         // Time the matching operation
         auto const start = std::chrono::high_resolution_clock::now();
         auto const match_result = std::visit(
-            [&](visual_odometry::matcher auto const& m) {
+            [&](visual_odometry::matcher_like auto const& m) {
                 return m.match_images(img1, img2);
             },
             matcher);
@@ -123,7 +123,7 @@ struct BenchmarkResult {
 
         std::size_t inliers = 0;
         if (intrinsics && num_matches >= 5) {
-            visual_odometry::MotionEstimatorConfig const config{};
+            visual_odometry::motion_estimator_config const config{};
             auto const motion = visual_odometry::estimate_motion(
                 match_result.points1, match_result.points2, *intrinsics, config);
             inliers = static_cast<std::size_t>(motion.inliers);
@@ -198,10 +198,10 @@ int main(int argc, char* argv[]) {
     std::cout << '\n';
 
     // Load camera intrinsics (optional, for accuracy metrics)
-    std::optional<visual_odometry::CameraIntrinsics> intrinsics;
+    std::optional<visual_odometry::camera_intrinsics> intrinsics;
     if (!args->camera_yaml.empty()) {
         auto const intrinsics_result =
-            visual_odometry::CameraIntrinsics::load_from_yaml(args->camera_yaml);
+            visual_odometry::camera_intrinsics::load_from_yaml(args->camera_yaml);
         if (!intrinsics_result) {
             std::cerr << "Warning: Failed to load camera intrinsics: "
                       << intrinsics_result.error() << '\n';

@@ -52,7 +52,7 @@ protected:
         }
     }
 
-    visual_odometry::CameraIntrinsics intrinsics_;
+    visual_odometry::camera_intrinsics intrinsics_;
 };
 
 TEST_F(MotionEstimatorTest, EstimatesForwardMotion) {
@@ -65,7 +65,7 @@ TEST_F(MotionEstimatorTest, EstimatesForwardMotion) {
     generate_synthetic_points(R, t, 100, points1, points2);
 
     // WHEN estimating motion
-    visual_odometry::MotionEstimatorConfig const config{};
+    visual_odometry::motion_estimator_config const config{};
     auto const result = visual_odometry::estimate_motion(points1, points2, intrinsics_, config);
 
     // THEN estimation should succeed
@@ -88,7 +88,7 @@ TEST_F(MotionEstimatorTest, EstimatesRotation) {
     generate_synthetic_points(R, t, 100, points1, points2);
 
     // WHEN estimating motion
-    visual_odometry::MotionEstimatorConfig const config{};
+    visual_odometry::motion_estimator_config const config{};
     auto const result = visual_odometry::estimate_motion(points1, points2, intrinsics_, config);
 
     // THEN estimation should succeed
@@ -102,7 +102,7 @@ TEST_F(MotionEstimatorTest, FailsWithTooFewPoints) {
     std::vector<cv::Point2f> const points2 = {{110, 100}, {210, 200}, {310, 300}};
 
     // WHEN estimating motion
-    visual_odometry::MotionEstimatorConfig const config{};
+    visual_odometry::motion_estimator_config const config{};
     auto const result = visual_odometry::estimate_motion(points1, points2, intrinsics_, config);
 
     // THEN estimation should fail
@@ -127,7 +127,7 @@ TEST_F(MotionEstimatorTest, LoadsIntrinsicsFromYaml) {
     std::string const camera_file = "data/kitti_camera.yaml";
 
     // WHEN loading intrinsics
-    auto const loaded = visual_odometry::CameraIntrinsics::load_from_yaml(camera_file);
+    auto const loaded = visual_odometry::camera_intrinsics::load_from_yaml(camera_file);
     if (!loaded.has_value()) {
         GTEST_SKIP() << "Camera file not found, skipping YAML load test: " << loaded.error();
     }
@@ -142,7 +142,7 @@ TEST_F(MotionEstimatorTest, LoadsIntrinsicsFromYaml) {
 TEST_F(MotionEstimatorTest, LoadFromYamlReturnsErrorForMissingFile) {
     // GIVEN a nonexistent file path
     // WHEN loading intrinsics
-    auto const result = visual_odometry::CameraIntrinsics::load_from_yaml("/nonexistent/path.yaml");
+    auto const result = visual_odometry::camera_intrinsics::load_from_yaml("/nonexistent/path.yaml");
 
     // THEN loading should fail with error
     ASSERT_FALSE(result.has_value());

@@ -108,50 +108,22 @@ NB_MODULE(_visual_odometry_impl, m) {
         });
 
     // ==================== MatchResult ====================
-    nb::class_<vo::MatchResult>(m, "MatchResult",
+    nb::class_<vo::match_result>(m, "MatchResult",
         "Result of feature matching between two images.")
 
-        .def_ro("points1", &vo::MatchResult::points1,
+        .def_ro("points1", &vo::match_result::points1,
         "Matched points in first image as list of (x, y) tuples.")
 
-        .def_ro("points2", &vo::MatchResult::points2,
+        .def_ro("points2", &vo::match_result::points2,
         "Matched points in second image as list of (x, y) tuples.")
 
-        .def_prop_ro("num_matches", [](vo::MatchResult const& self) {
+        .def_prop_ro("num_matches", [](vo::match_result const& self) {
             return self.matches.size();
         }, "Number of matches found.")
 
-        .def("__len__", [](vo::MatchResult const& self) {
+        .def("__len__", [](vo::match_result const& self) {
             return self.matches.size();
         });
-
-    // ==================== ImageMatcher ====================
-    nb::class_<vo::ImageMatcher>(m, "ImageMatcher",
-        "Abstract interface for image-to-image feature matching.")
-
-        .def("match_images", &vo::ImageMatcher::match_images,
-        "img1"_a, "img2"_a,
-        "Match features between two images.\n\n"
-        "Args:\n"
-        "    img1: First grayscale image (numpy array).\n"
-        "    img2: Second grayscale image (numpy array).\n\n"
-        "Returns:\n"
-        "    MatchResult containing corresponding points.")
-
-        .def_prop_ro("name", &vo::ImageMatcher::name,
-        "Name of this matcher backend.");
-
-    // ==================== OrbImageMatcher ====================
-    nb::class_<vo::OrbImageMatcher, vo::ImageMatcher>(m, "OrbImageMatcher",
-        "ORB-based image matcher (detect + match).")
-
-        .def(nb::init<int, float>(),
-        "max_features"_a = vo::default_max_features,
-        "ratio_threshold"_a = vo::default_ratio_threshold,
-        "Construct ORB matcher.\n\n"
-        "Args:\n"
-        "    max_features: Maximum features to detect (default: 2000).\n"
-        "    ratio_threshold: Lowe's ratio test threshold (default: 0.75).");
 
     // ==================== orb_matcher ====================
     nb::class_<vo::orb_matcher>(m, "orb_matcher",
@@ -199,33 +171,19 @@ NB_MODULE(_visual_odometry_impl, m) {
         .def_prop_ro("name", &vo::lightglue_matcher::name,
         "Name of this matcher backend.");
 
-    // ==================== create_matcher factory ====================
-    m.def("create_matcher", [](std::string_view name) {
-        auto matcher = vo::create_matcher(name);
-        if (!matcher) {
-            throw std::runtime_error("Unknown matcher: " + std::string(name));
-        }
-        return matcher;
-    }, "name"_a,
-    "Create a matcher by name.\n\n"
-    "Args:\n"
-    "    name: Matcher name - 'orb' (default) or 'matchanything'.\n\n"
-    "Returns:\n"
-    "    ImageMatcher instance.");
-
     // ==================== CameraIntrinsics ====================
-    nb::class_<vo::CameraIntrinsics>(m, "CameraIntrinsics",
+    nb::class_<vo::camera_intrinsics>(m, "CameraIntrinsics",
         "Camera intrinsic parameters.")
 
         .def(nb::init<>())
 
-        .def_rw("fx", &vo::CameraIntrinsics::fx, "Focal length x.")
-        .def_rw("fy", &vo::CameraIntrinsics::fy, "Focal length y.")
-        .def_rw("cx", &vo::CameraIntrinsics::cx, "Principal point x.")
-        .def_rw("cy", &vo::CameraIntrinsics::cy, "Principal point y.")
+        .def_rw("fx", &vo::camera_intrinsics::fx, "Focal length x.")
+        .def_rw("fy", &vo::camera_intrinsics::fy, "Focal length y.")
+        .def_rw("cx", &vo::camera_intrinsics::cx, "Principal point x.")
+        .def_rw("cy", &vo::camera_intrinsics::cy, "Principal point y.")
 
         .def_static("load_from_yaml", [](std::string_view filepath) {
-            return unwrap_expected(vo::CameraIntrinsics::load_from_yaml(filepath));
+            return unwrap_expected(vo::camera_intrinsics::load_from_yaml(filepath));
         }, "filepath"_a,
         "Load intrinsics from YAML file.\n\n"
         "Args:\n"
@@ -233,7 +191,7 @@ NB_MODULE(_visual_odometry_impl, m) {
         "Returns:\n"
         "    CameraIntrinsics instance.")
 
-        .def("__repr__", [](vo::CameraIntrinsics const& self) {
+        .def("__repr__", [](vo::camera_intrinsics const& self) {
             return "CameraIntrinsics(fx=" + std::to_string(self.fx) +
                    ", fy=" + std::to_string(self.fy) +
                    ", cx=" + std::to_string(self.cx) +
@@ -241,38 +199,38 @@ NB_MODULE(_visual_odometry_impl, m) {
         });
 
     // ==================== MotionEstimate ====================
-    nb::class_<vo::MotionEstimate>(m, "MotionEstimate",
+    nb::class_<vo::motion_estimate>(m, "MotionEstimate",
         "Result of motion estimation between two frames.")
 
-        .def_ro("rotation", &vo::MotionEstimate::rotation,
+        .def_ro("rotation", &vo::motion_estimate::rotation,
         "Rotation matrix (3x3 numpy array).")
 
-        .def_ro("translation", &vo::MotionEstimate::translation,
+        .def_ro("translation", &vo::motion_estimate::translation,
         "Translation vector (3-element numpy array), unit norm.")
 
-        .def_ro("inliers", &vo::MotionEstimate::inliers,
+        .def_ro("inliers", &vo::motion_estimate::inliers,
         "Number of RANSAC inliers.")
 
-        .def_ro("valid", &vo::MotionEstimate::valid,
+        .def_ro("valid", &vo::motion_estimate::valid,
         "Whether estimation succeeded.")
 
-        .def("__bool__", [](vo::MotionEstimate const& self) {
+        .def("__bool__", [](vo::motion_estimate const& self) {
             return self.valid;
         });
 
     // ==================== MotionEstimatorConfig ====================
-    nb::class_<vo::MotionEstimatorConfig>(m, "MotionEstimatorConfig",
+    nb::class_<vo::motion_estimator_config>(m, "MotionEstimatorConfig",
         "Configuration parameters for motion estimation.")
 
         .def(nb::init<>())
 
-        .def_rw("ransac_threshold", &vo::MotionEstimatorConfig::ransac_threshold,
+        .def_rw("ransac_threshold", &vo::motion_estimator_config::ransac_threshold,
         "RANSAC reprojection threshold in pixels (default: 1.0).")
 
-        .def_rw("ransac_confidence", &vo::MotionEstimatorConfig::ransac_confidence,
+        .def_rw("ransac_confidence", &vo::motion_estimator_config::ransac_confidence,
         "RANSAC confidence level 0-1 (default: 0.999).")
 
-        .def("__repr__", [](vo::MotionEstimatorConfig const& self) {
+        .def("__repr__", [](vo::motion_estimator_config const& self) {
             return "MotionEstimatorConfig(ransac_threshold=" + std::to_string(self.ransac_threshold) +
                    ", ransac_confidence=" + std::to_string(self.ransac_confidence) + ")";
         });
@@ -280,10 +238,10 @@ NB_MODULE(_visual_odometry_impl, m) {
     // ==================== estimate_motion function ====================
     m.def("estimate_motion", [](std::vector<cv::Point2f> const& points1,
                                  std::vector<cv::Point2f> const& points2,
-                                 vo::CameraIntrinsics const& intrinsics,
-                                 vo::MotionEstimatorConfig const& config) {
+                                 vo::camera_intrinsics const& intrinsics,
+                                 vo::motion_estimator_config const& config) {
         return vo::estimate_motion(points1, points2, intrinsics, config);
-    }, "points1"_a, "points2"_a, "intrinsics"_a, "config"_a = vo::MotionEstimatorConfig{},
+    }, "points1"_a, "points2"_a, "intrinsics"_a, "config"_a = vo::motion_estimator_config{},
     "Estimate camera motion from matched feature points.\n\n"
     "Args:\n"
     "    points1: Points in first image.\n"
@@ -294,21 +252,21 @@ NB_MODULE(_visual_odometry_impl, m) {
     "    MotionEstimate containing R, t if successful.");
 
     // ==================== Pose ====================
-    nb::class_<vo::Pose>(m, "Pose",
+    nb::class_<vo::pose>(m, "Pose",
         "Represents an absolute camera pose in the world frame.")
 
         .def(nb::init<>())
 
-        .def_rw("rotation", &vo::Pose::rotation,
+        .def_rw("rotation", &vo::pose::rotation,
         "Rotation matrix (3x3 numpy array).")
 
-        .def_rw("translation", &vo::Pose::translation,
+        .def_rw("translation", &vo::pose::translation,
         "Translation vector (3-element numpy array).")
 
-        .def_static("identity", &vo::Pose::identity,
+        .def_static("identity", &vo::pose::identity,
         "Create identity pose (origin).")
 
-        .def("compose", &vo::Pose::compose, "motion"_a,
+        .def("compose", &vo::pose::compose, "motion"_a,
         "Compose this pose with a relative transform.\n\n"
         "Args:\n"
         "    motion: Relative motion (MotionEstimate) from this pose.\n\n"
