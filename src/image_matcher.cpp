@@ -1,11 +1,25 @@
 #include <visual_odometry/image_matcher.hpp>
+#include <visual_odometry/feature_detector.hpp>
+#include <visual_odometry/feature_matcher.hpp>
 #include <visual_odometry/onnx_session.hpp>
-#include <opencv2/imgcodecs.hpp>
-#include <opencv2/imgproc.hpp>
-#include <algorithm>
+
 #include <array>
+#include <cctype>
+#include <cstddef>
+#include <cstdint>
+#include <filesystem>
 #include <memory>
 #include <stdexcept>
+#include <string>
+#include <string_view>
+#include <utility>
+#include <vector>
+
+#include <opencv2/core/mat.hpp>
+#include <opencv2/core/hal/interface.h>
+#include <opencv2/core/types.hpp>
+#include <opencv2/imgproc.hpp>
+#include <onnxruntime_cxx_api.h>
 
 namespace visual_odometry {
 
@@ -43,8 +57,8 @@ auto preprocess_image_for_lightglue(cv::Mat const& img)
     for (int64_t c = 0; c < 3; ++c) {
         for (int64_t h = 0; h < height; ++h) {
             for (int64_t w = 0; w < width; ++w) {
-                auto const src_idx = static_cast<size_t>(h * width * 3 + w * 3 + c);
-                auto const dst_idx = static_cast<size_t>(c * height * width + h * width + w);
+                auto const src_idx = static_cast<size_t>((h * width * 3) + (w * 3) + c);
+                auto const dst_idx = static_cast<size_t>((c * height * width) + (h * width) + w);
                 tensor_data[dst_idx] = float_img.ptr<float>()[src_idx];
             }
         }
@@ -75,7 +89,7 @@ auto match_images_orb(cv::Mat const& img1,
 
 lightglue_matcher::lightglue_matcher(std::filesystem::path model_path)
     : model_path_(std::move(model_path)),
-      session_(std::make_unique<OnnxSession>(model_path_)) {}
+      session_(std::make_unique<onnx_session>(model_path_)) {}
 
 lightglue_matcher::lightglue_matcher(lightglue_matcher&&) noexcept = default;
 auto lightglue_matcher::operator=(lightglue_matcher&&) noexcept -> lightglue_matcher& = default;
@@ -98,7 +112,7 @@ auto lightglue_matcher::match_images(cv::Mat const& img1,
     std::array<char const*, 4> output_names = {"kpts0", "kpts1", "matches0", "mscores0"};
 
     // Run inference (const_cast needed because ORT API is not const-correct)
-    auto& mutable_session = const_cast<OnnxSession&>(*session_);
+    auto& mutable_session = const_cast<onnx_session&>(*session_);
     std::array<Ort::Value, 2> inputs = {std::move(tensor0), std::move(tensor1)};
 
     auto outputs = mutable_session.run(
@@ -145,15 +159,15 @@ auto lightglue_matcher::match_images(cv::Mat const& img1,
     result.matches.reserve(num_matches);
 
     for (size_t i = 0; i < num_matches; ++i) {
-        auto const idx0 = static_cast<size_t>(matches_data[i * 2]);
-        auto const idx1 = static_cast<size_t>(matches_data[i * 2 + 1]);
+        auto const idx0 = static_cast<size_t>(matches_data[(i * 2)]);
+        auto const idx1 = static_cast<size_t>(matches_data[(i * 2) + 1]);
 
         if (idx0 < num_kpts0 && idx1 < num_kpts1) {
             // Get keypoint coordinates (x, y)
-            float const x0 = kpts0_data[idx0 * 2];
-            float const y0 = kpts0_data[idx0 * 2 + 1];
-            float const x1 = kpts1_data[idx1 * 2];
-            float const y1 = kpts1_data[idx1 * 2 + 1];
+            float const x0 = kpts0_data[(idx0 * 2)];
+            float const y0 = kpts0_data[(idx0 * 2) + 1];
+            float const x1 = kpts1_data[(idx1 * 2)];
+            float const y1 = kpts1_data[(idx1 * 2) + 1];
 
             result.points1.emplace_back(x0, y0);
             result.points2.emplace_back(x1, y1);
@@ -173,7 +187,7 @@ auto create_image_matcher(std::string_view name) -> image_matcher {
     // Convert to lowercase for comparison
     std::string lower_name;
     lower_name.reserve(name.size());
-    for (char c : name) {
+    for (char const c : name) {
         lower_name.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(c))));
     }
 

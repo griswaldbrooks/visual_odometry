@@ -1,12 +1,24 @@
 #include <visual_odometry/trajectory.hpp>
+#include <visual_odometry/motion_estimator.hpp>
+
+#include <cstddef>
+#include <filesystem>
 #include <fstream>
-#include <sstream>
 #include <iomanip>
+#include <sstream>
+#include <string>
+#include <vector>
+
+#include <tl/expected.hpp>
+#include <Eigen/Dense>
 
 namespace visual_odometry {
 
 auto pose::identity() noexcept -> pose {
-    return pose{Eigen::Matrix3d::Identity(), Eigen::Vector3d::Zero()};
+    return pose{
+        .rotation = Eigen::Matrix3d::Identity(),  // NOLINT(misc-include-cleaner)
+        .translation = Eigen::Vector3d::Zero()    // NOLINT(misc-include-cleaner)
+    };
 }
 
 auto pose::compose(motion_estimate const& relative) const noexcept -> pose {

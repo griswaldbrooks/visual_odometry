@@ -1,16 +1,26 @@
 #include <visual_odometry/image_loader.hpp>
-#include <filesystem>
+
 #include <algorithm>
+#include <cctype>
+#include <cstddef>
+#include <filesystem>
+#include <string>
+#include <string_view>
+#include <utility>
+#include <vector>
+
+#include <opencv2/core/mat.hpp>
+#include <opencv2/imgcodecs.hpp>
+#include <tl/expected.hpp>
 
 namespace visual_odometry {
 
-ImageLoader::ImageLoader(std::string image_directory, std::vector<std::string> image_paths)
+image_loader::image_loader(std::string image_directory, std::vector<std::string> image_paths)
     : image_directory_(std::move(image_directory)),
-      image_paths_(std::move(image_paths)),
-      current_index_(0) {}
+      image_paths_(std::move(image_paths)) {}
 
-auto ImageLoader::create(std::string_view image_directory)
-    -> tl::expected<ImageLoader, std::string>
+auto image_loader::create(std::string_view image_directory)
+    -> tl::expected<image_loader, std::string>
 {
     namespace fs = std::filesystem;
 
@@ -23,19 +33,19 @@ auto ImageLoader::create(std::string_view image_directory)
     for (auto const& entry : fs::directory_iterator(image_directory)) {
         if (entry.is_regular_file()) {
             auto ext = entry.path().extension().string();
-            std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+            std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);  // NOLINT(modernize-use-ranges)
             if (ext == ".png" || ext == ".jpg" || ext == ".jpeg") {
                 image_paths.push_back(entry.path().string());
             }
         }
     }
 
-    std::sort(image_paths.begin(), image_paths.end());
+    std::sort(image_paths.begin(), image_paths.end());  // NOLINT(modernize-use-ranges)
 
-    return ImageLoader(std::string(image_directory), std::move(image_paths));
+    return image_loader(std::string(image_directory), std::move(image_paths));
 }
 
-auto ImageLoader::load_image(size_t index) const
+auto image_loader::load_image(size_t index) const
     -> tl::expected<cv::Mat, std::string>
 {
     if (index >= image_paths_.size()) {
@@ -43,7 +53,7 @@ auto ImageLoader::load_image(size_t index) const
             + " >= " + std::to_string(image_paths_.size()));
     }
 
-    auto const image = cv::imread(image_paths_[index], cv::IMREAD_GRAYSCALE);
+    auto image = cv::imread(image_paths_[index], cv::IMREAD_GRAYSCALE);
     if (image.empty()) {
         return tl::unexpected("Failed to load image: " + image_paths_[index]);
     }
@@ -51,7 +61,7 @@ auto ImageLoader::load_image(size_t index) const
     return image;
 }
 
-auto ImageLoader::load_image_pair(size_t index) const
+auto image_loader::load_image_pair(size_t index) const
     -> tl::expected<std::pair<cv::Mat, cv::Mat>, std::string>
 {
     auto const img1 = load_image(index);
@@ -67,7 +77,7 @@ auto ImageLoader::load_image_pair(size_t index) const
     return std::make_pair(img1.value(), img2.value());
 }
 
-auto ImageLoader::next_pair()
+auto image_loader::next_pair()
     -> tl::expected<std::pair<cv::Mat, cv::Mat>, std::string>
 {
     auto pair = load_image_pair(current_index_);
@@ -77,15 +87,15 @@ auto ImageLoader::next_pair()
     return pair;
 }
 
-auto ImageLoader::has_next() const noexcept -> bool {
+auto image_loader::has_next() const noexcept -> bool {
     return current_index_ + 1 < image_paths_.size();
 }
 
-auto ImageLoader::reset() noexcept -> void {
+auto image_loader::reset() noexcept -> void {
     current_index_ = 0;
 }
 
-auto ImageLoader::size() const noexcept -> size_t {
+auto image_loader::size() const noexcept -> size_t {
     return image_paths_.size();
 }
 

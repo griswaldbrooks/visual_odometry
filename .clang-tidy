@@ -16,11 +16,13 @@ Checks: >
   -cppcoreguidelines-pro-bounds-constant-array-index,
   -readability-function-cognitive-complexity,
   -misc-non-private-member-variables-in-classes,
-  -cppcoreguidelines-non-private-member-variables-in-classes
+  -cppcoreguidelines-non-private-member-variables-in-classes,
+  -portability-avoid-pragma-once,
+  -readability-uppercase-literal-suffix
 
 WarningsAsErrors: '*'
 
-HeaderFilterRegex: '(include|src)/.*\.(h|hpp)$'
+HeaderFilterRegex: '^(?!.*/build/)(?!.*/_deps/).*(include|src)/.*\.(h|hpp)$'
 
 CheckOptions:
   # Naming conventions: snake_case for everything

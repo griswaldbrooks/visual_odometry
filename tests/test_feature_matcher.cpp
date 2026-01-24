@@ -1,9 +1,15 @@
 #include <gtest/gtest.h>
 #include <visual_odometry/feature_detector.hpp>
 #include <visual_odometry/feature_matcher.hpp>
-#include <opencv2/imgproc.hpp>
 
-class FeatureMatcherTest : public ::testing::Test {
+#include <cstddef>
+#include <vector>
+
+#include <opencv2/core.hpp>
+#include <opencv2/core/hal/interface.h>
+#include <opencv2/core/types.hpp>
+
+class feature_matcher_test : public ::testing::Test {
 protected:
     void SetUp() override {
         // Create two similar test images (shifted checkerboard)
@@ -45,7 +51,7 @@ protected:
     cv::Mat descriptors2_;
 };
 
-TEST_F(FeatureMatcherTest, MatchesSimilarImages) {
+TEST_F(feature_matcher_test, MatchesSimilarImages) {
     // GIVEN a feature matcher config
     auto const config = visual_odometry::feature_matcher_config{};
 
@@ -60,7 +66,7 @@ TEST_F(FeatureMatcherTest, MatchesSimilarImages) {
     EXPECT_EQ(result.points2.size(), result.matches.size());
 }
 
-TEST_F(FeatureMatcherTest, MatchedPointsAreConsistent) {
+TEST_F(feature_matcher_test, MatchedPointsAreConsistent) {
     // GIVEN a feature matcher config with matches
     auto const config = visual_odometry::feature_matcher_config{};
     auto const result = visual_odometry::match_features(
@@ -79,7 +85,7 @@ TEST_F(FeatureMatcherTest, MatchedPointsAreConsistent) {
     }
 }
 
-TEST_F(FeatureMatcherTest, StricterRatioReducesMatches) {
+TEST_F(feature_matcher_test, StricterRatioReducesMatches) {
     // GIVEN matcher configs with different ratio thresholds
     auto const loose_config = visual_odometry::feature_matcher_config{.ratio_threshold = 0.9f};
     auto const strict_config = visual_odometry::feature_matcher_config{.ratio_threshold = 0.5f};
@@ -94,7 +100,7 @@ TEST_F(FeatureMatcherTest, StricterRatioReducesMatches) {
     EXPECT_GE(loose_result.matches.size(), strict_result.matches.size());
 }
 
-TEST_F(FeatureMatcherTest, HandlesEmptyDescriptors) {
+TEST_F(feature_matcher_test, HandlesEmptyDescriptors) {
     // GIVEN a feature matcher config
     auto const config = visual_odometry::feature_matcher_config{};
     cv::Mat const empty_desc;
@@ -114,7 +120,7 @@ TEST_F(FeatureMatcherTest, HandlesEmptyDescriptors) {
     EXPECT_EQ(result.matches.size(), 0);
 }
 
-TEST_F(FeatureMatcherTest, DrawsMatches) {
+TEST_F(feature_matcher_test, DrawsMatches) {
     // GIVEN matched features
     auto const config = visual_odometry::feature_matcher_config{};
     auto const result = visual_odometry::match_features(

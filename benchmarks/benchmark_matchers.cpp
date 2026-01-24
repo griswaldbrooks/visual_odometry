@@ -1,19 +1,26 @@
+#include <visual_odometry/feature_matcher.hpp>
 #include <visual_odometry/image_loader.hpp>
 #include <visual_odometry/image_matcher.hpp>
+#include <visual_odometry/matcher_concept.hpp>
 #include <visual_odometry/motion_estimator.hpp>
 #include <chrono>
 #include <cstdlib>
+#include <exception>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <optional>
+#include <ratio>
+#include <span>
 #include <string>
 #include <string_view>
+#include <utility>
+#include <variant>
 #include <vector>
 
 namespace {
 
-struct Args {
+struct args {
     std::string image_dir;
     std::string matcher = "orb";
     std::string output_path = "benchmark_results.json";
@@ -31,41 +38,41 @@ void print_usage(std::string_view program) {
               << "  --help             Show this help message\n";
 }
 
-[[nodiscard]] auto parse_args(int argc, char* argv[]) -> std::optional<Args> {
-    Args args;
+[[nodiscard]] auto parse_args(int argc, std::span<char*> argv_span) -> std::optional<args> {
+    args args_val;
 
     for (int i = 1; i < argc; ++i) {
-        std::string_view const arg = argv[i];
+        std::string_view const arg = argv_span[static_cast<size_t>(i)];
 
         if (arg == "--help" || arg == "-h") {
-            print_usage(argv[0]);
+            print_usage(argv_span[0]);
             return std::nullopt;
         }
         if (arg == "--images" && i + 1 < argc) {
-            args.image_dir = argv[++i];
+            args_val.image_dir = argv_span[static_cast<size_t>(++i)];
         } else if (arg == "--matcher" && i + 1 < argc) {
-            args.matcher = argv[++i];
+            args_val.matcher = argv_span[static_cast<size_t>(++i)];
         } else if (arg == "--output" && i + 1 < argc) {
-            args.output_path = argv[++i];
+            args_val.output_path = argv_span[static_cast<size_t>(++i)];
         } else if (arg == "--camera" && i + 1 < argc) {
-            args.camera_yaml = argv[++i];
+            args_val.camera_yaml = argv_span[static_cast<size_t>(++i)];
         } else {
             std::cerr << "Unknown option: " << arg << '\n';
-            print_usage(argv[0]);
+            print_usage(argv_span[0]);
             return std::nullopt;
         }
     }
 
-    if (args.image_dir.empty()) {
+    if (args_val.image_dir.empty()) {
         std::cerr << "Error: --images is required\n";
-        print_usage(argv[0]);
+        print_usage(argv_span[0]);
         return std::nullopt;
     }
 
-    return args;
+    return args_val;
 }
 
-struct BenchmarkResult {
+struct benchmark_result {
     std::string matcher_name;
     std::size_t num_pairs{0};
     double total_time_ms{0.0};
@@ -81,13 +88,13 @@ struct BenchmarkResult {
 
 [[nodiscard]] auto benchmark_matcher(
     visual_odometry::image_matcher const& matcher,
-    visual_odometry::ImageLoader& loader,
+    visual_odometry::image_loader& loader,
     std::optional<visual_odometry::camera_intrinsics> const& intrinsics)
-    -> BenchmarkResult
+    -> benchmark_result
 {
-    BenchmarkResult result;
+    benchmark_result result;
     result.matcher_name = std::string(
-        std::visit([](auto const& m) { return m.name(); }, matcher));
+        std::visit([](auto const& m) -> std::string_view { return m.name(); }, matcher));
 
     loader.reset();
 
@@ -105,7 +112,7 @@ struct BenchmarkResult {
         // Time the matching operation
         auto const start = std::chrono::high_resolution_clock::now();
         auto const match_result = std::visit(
-            [&](visual_odometry::matcher_like auto const& m) {
+            [&](visual_odometry::matcher_like auto const& m) -> visual_odometry::match_result {
                 return m.match_images(img1, img2);
             },
             matcher);
@@ -153,37 +160,41 @@ struct BenchmarkResult {
     return result;
 }
 
-void write_results_json(BenchmarkResult const& result, std::string_view output_path) {
-    std::ofstream file(output_path.data());
+auto write_results_json(benchmark_result const& result, std::string_view output_path) -> void {
+    std::ofstream file{std::string(output_path)};
     if (!file) {
         std::cerr << "Error: Failed to open output file: " << output_path << '\n';
         return;
     }
 
-    file << "{\n"
-         << "  \"matcher\": \"" << result.matcher_name << "\",\n"
-         << "  \"num_pairs\": " << result.num_pairs << ",\n"
-         << "  \"total_time_ms\": " << std::fixed << std::setprecision(2)
-         << result.total_time_ms << ",\n"
-         << "  \"avg_time_ms\": " << std::fixed << std::setprecision(2)
-         << result.avg_time_ms << ",\n"
-         << "  \"total_matches\": " << result.total_matches << ",\n"
-         << "  \"avg_matches\": " << std::fixed << std::setprecision(2)
-         << result.avg_matches << ",\n"
-         << "  \"total_inliers\": " << result.total_inliers << ",\n"
-         << "  \"avg_inliers\": " << std::fixed << std::setprecision(2)
-         << result.avg_inliers << ",\n"
-         << "  \"avg_inlier_ratio\": " << std::fixed << std::setprecision(4)
-         << result.avg_inlier_ratio << "\n"
-         << "}\n";
+    file << R"({
+)"
+         << R"(  "matcher": ")" << result.matcher_name << R"(",
+)"
+         << R"(  "num_pairs": )" << result.num_pairs << R"(,
+  "total_time_ms": )" << std::fixed << std::setprecision(2)
+         << result.total_time_ms << R"(,
+  "avg_time_ms": )" << std::fixed << std::setprecision(2)
+         << result.avg_time_ms << R"(,
+  "total_matches": )" << result.total_matches << R"(,
+  "avg_matches": )" << std::fixed << std::setprecision(2)
+         << result.avg_matches << R"(,
+  "total_inliers": )" << result.total_inliers << R"(,
+  "avg_inliers": )" << std::fixed << std::setprecision(2)
+         << result.avg_inliers << R"(,
+  "avg_inlier_ratio": )" << std::fixed << std::setprecision(4)
+         << result.avg_inlier_ratio << R"(
+}
+)";
 
     std::cout << "\nResults written to: " << output_path << '\n';
 }
 
 }  // namespace
 
-int main(int argc, char* argv[]) {
-    auto const args = parse_args(argc, argv);
+auto main(int argc, char* argv[]) -> int {  // NOLINT(bugprone-exception-escape)
+    try {
+        auto const args = parse_args(argc, std::span<char*>(argv, static_cast<size_t>(argc)));
     if (!args) {
         return 1;
     }
@@ -214,7 +225,7 @@ int main(int argc, char* argv[]) {
     }
 
     // Initialize image loader
-    auto loader_result = visual_odometry::ImageLoader::create(args->image_dir);
+    auto loader_result = visual_odometry::image_loader::create(args->image_dir);
     if (!loader_result) {
         std::cerr << "Error loading images: " << loader_result.error() << '\n';
         return 1;
@@ -258,4 +269,8 @@ int main(int argc, char* argv[]) {
     write_results_json(result, args->output_path);
 
     return 0;
+    } catch (std::exception const& e) {
+        std::cerr << "Fatal error: " << e.what() << '\n';
+        return 1;
+    }
 }

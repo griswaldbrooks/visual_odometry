@@ -1,26 +1,35 @@
 #include <visual_odometry/motion_estimator.hpp>
+
+#include <algorithm>
+#include <span>
+#include <string>
+#include <string_view>
+
 #include <opencv2/calib3d.hpp>
 #include <opencv2/core/eigen.hpp>
-#include <fstream>
+#include <opencv2/core/hal/interface.h>
+#include <opencv2/core/mat.hpp>
+#include <opencv2/core/persistence.hpp>
+#include <opencv2/core/types.hpp>
+#include <tl/expected.hpp>
 
 namespace visual_odometry {
 
 auto camera_intrinsics::camera_matrix() const -> cv::Mat {
-    return (cv::Mat_<double>(3, 3) <<
-        fx, 0.0, cx,
-        0.0, fy, cy,
-        0.0, 0.0, 1.0);
+    cv::Mat_<double> mat(3, 3);
+    mat << fx, 0.0, cx, 0.0, fy, cy, 0.0, 0.0, 1.0;
+    return mat;
 }
 
 auto camera_intrinsics::load_from_yaml(std::string_view filepath)
     -> tl::expected<camera_intrinsics, std::string>
 {
-    cv::FileStorage fs(std::string(filepath), cv::FileStorage::READ);
+    cv::FileStorage const fs(std::string(filepath), cv::FileStorage::READ);
     if (!fs.isOpened()) {
         return tl::unexpected("Could not open camera file: " + std::string(filepath));
     }
 
-    camera_intrinsics intrinsics;
+    camera_intrinsics intrinsics{};
     fs["fx"] >> intrinsics.fx;
     fs["fy"] >> intrinsics.fy;
     fs["cx"] >> intrinsics.cx;
@@ -44,35 +53,39 @@ auto estimate_motion(std::span<cv::Point2f const> points1,
         return result;
     }
 
-    // Convert spans to cv::Mat for OpenCV functions
-    cv::Mat const pts1_mat(static_cast<int>(points1.size()), 1, CV_32FC2,
-                           const_cast<cv::Point2f*>(points1.data()));
-    cv::Mat const pts2_mat(static_cast<int>(points2.size()), 1, CV_32FC2,
-                           const_cast<cv::Point2f*>(points2.data()));
+    // Convert spans to cv::Mat for OpenCV functions (copy data)
+    cv::Mat const pts1_mat(static_cast<int>(points1.size()), 1, CV_32FC2);
+    std::ranges::copy(points1,
+              reinterpret_cast<cv::Point2f*>(pts1_mat.data));  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
 
-    cv::Mat const K = intrinsics.camera_matrix();
+    cv::Mat const pts2_mat(static_cast<int>(points2.size()), 1, CV_32FC2);
+    std::ranges::copy(points2,
+              reinterpret_cast<cv::Point2f*>(pts2_mat.data));  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+
+    cv::Mat const camera_matrix = intrinsics.camera_matrix();
     cv::Mat mask;
 
     // Compute Essential matrix using RANSAC
-    cv::Mat const E = cv::findEssentialMat(
-        pts1_mat, pts2_mat, K,
+    cv::Mat const essential_matrix = cv::findEssentialMat(
+        pts1_mat, pts2_mat, camera_matrix,
         cv::RANSAC, config.ransac_confidence, config.ransac_threshold, mask);
 
-    if (E.empty()) {
+    if (essential_matrix.empty()) {
         return result;
     }
 
     // Recover rotation and translation from Essential matrix
-    cv::Mat R_cv, t_cv;
-    int const inliers = cv::recoverPose(E, pts1_mat, pts2_mat, K, R_cv, t_cv, mask);
+    cv::Mat rotation_cv;
+    cv::Mat translation_cv;
+    int const inliers = cv::recoverPose(essential_matrix, pts1_mat, pts2_mat, camera_matrix, rotation_cv, translation_cv, mask);
 
     if (inliers < min_motion_inliers) {
         return result;
     }
 
     // Convert to Eigen
-    cv::cv2eigen(R_cv, result.rotation);
-    cv::cv2eigen(t_cv, result.translation);
+    cv::cv2eigen(rotation_cv, result.rotation);
+    cv::cv2eigen(translation_cv, result.translation);
 
     result.inliers = inliers;
     result.valid = true;

@@ -1,8 +1,13 @@
 #include <gtest/gtest.h>
 #include <visual_odometry/feature_detector.hpp>
-#include <opencv2/imgproc.hpp>
 
-class FeatureDetectorTest : public ::testing::Test {
+#include <cstddef>
+
+#include <opencv2/core.hpp>
+#include <opencv2/core/hal/interface.h>
+#include <opencv2/core/types.hpp>
+
+class feature_detector_test : public ::testing::Test {
 protected:
     void SetUp() override {
         // Create a test image with some texture (checkerboard pattern)
@@ -22,7 +27,7 @@ protected:
     cv::Mat test_image_;
 };
 
-TEST_F(FeatureDetectorTest, DetectsKeypoints) {
+TEST_F(feature_detector_test, DetectsKeypoints) {
     // GIVEN a feature detector config with default settings
     auto const config = visual_odometry::feature_detector_config{};
 
@@ -33,7 +38,7 @@ TEST_F(FeatureDetectorTest, DetectsKeypoints) {
     EXPECT_GT(keypoints.size(), 0);
 }
 
-TEST_F(FeatureDetectorTest, DetectsKeypointsAndDescriptors) {
+TEST_F(feature_detector_test, DetectsKeypointsAndDescriptors) {
     // GIVEN a feature detector config
     auto const config = visual_odometry::feature_detector_config{};
 
@@ -49,7 +54,7 @@ TEST_F(FeatureDetectorTest, DetectsKeypointsAndDescriptors) {
     EXPECT_EQ(result.descriptors.cols, 32);
 }
 
-TEST_F(FeatureDetectorTest, RespectsMaxFeatures) {
+TEST_F(feature_detector_test, RespectsMaxFeatures) {
     // GIVEN a detector config with limited max features
     int const max_features = 100;
     auto const config = visual_odometry::feature_detector_config{.max_features = max_features};
@@ -61,7 +66,7 @@ TEST_F(FeatureDetectorTest, RespectsMaxFeatures) {
     EXPECT_LE(keypoints.size(), static_cast<size_t>(max_features));
 }
 
-TEST_F(FeatureDetectorTest, DrawsKeypoints) {
+TEST_F(feature_detector_test, DrawsKeypoints) {
     // GIVEN detected keypoints
     auto const config = visual_odometry::feature_detector_config{};
     auto const keypoints = visual_odometry::detect_keypoints_only(test_image_, config);
@@ -74,7 +79,7 @@ TEST_F(FeatureDetectorTest, DrawsKeypoints) {
     EXPECT_EQ(output.channels(), 3);
 }
 
-TEST_F(FeatureDetectorTest, HandlesEmptyImage) {
+TEST_F(feature_detector_test, HandlesEmptyImage) {
     // GIVEN an empty image and config
     auto const config = visual_odometry::feature_detector_config{};
     cv::Mat const empty_image;
@@ -86,7 +91,7 @@ TEST_F(FeatureDetectorTest, HandlesEmptyImage) {
     EXPECT_EQ(keypoints.size(), 0);
 }
 
-TEST_F(FeatureDetectorTest, HandlesUniformImage) {
+TEST_F(feature_detector_test, HandlesUniformImage) {
     // GIVEN a uniform (featureless) image and config
     auto const config = visual_odometry::feature_detector_config{};
     cv::Mat const uniform_image(480, 640, CV_8UC1, cv::Scalar(128));

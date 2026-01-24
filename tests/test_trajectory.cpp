@@ -1,11 +1,14 @@
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
 #include <visual_odometry/trajectory.hpp>
-#include <cmath>
+#include <cstddef>
 #include <filesystem>
 #include <fstream>
+#include <iterator>
+#include <numbers>
+#include <string>
 
-class TrajectoryTest : public ::testing::Test {
+class trajectory_test : public ::testing::Test {
 protected:
     void SetUp() override {
         // Create a valid forward motion estimate
@@ -15,7 +18,7 @@ protected:
         forward_motion_.valid = true;
 
         // Create a rotation motion (90 degrees around Y)
-        double const angle = M_PI / 2.0;
+        double const angle = std::numbers::pi / 2.0;
         rotation_motion_.rotation = Eigen::AngleAxisd(angle, Eigen::Vector3d::UnitY()).toRotationMatrix();
         rotation_motion_.translation = Eigen::Vector3d(0, 0, 1);
         rotation_motion_.inliers = 100;
@@ -30,9 +33,9 @@ protected:
     visual_odometry::motion_estimate invalid_motion_;
 };
 
-TEST_F(TrajectoryTest, StartsAtOrigin) {
+TEST_F(trajectory_test, StartsAtOrigin) {
     // GIVEN a new trajectory
-    visual_odometry::Trajectory trajectory;
+    visual_odometry::Trajectory const trajectory;
 
     // THEN it should have one pose at origin
     EXPECT_EQ(trajectory.size(), 1);
@@ -43,7 +46,7 @@ TEST_F(TrajectoryTest, StartsAtOrigin) {
     EXPECT_TRUE(pose.translation.isZero());
 }
 
-TEST_F(TrajectoryTest, AccumulatesForwardMotion) {
+TEST_F(trajectory_test, AccumulatesForwardMotion) {
     // GIVEN a trajectory
     visual_odometry::Trajectory trajectory;
 
@@ -61,7 +64,7 @@ TEST_F(TrajectoryTest, AccumulatesForwardMotion) {
     EXPECT_NEAR(pose.translation(2), 1.0, 1e-9);
 }
 
-TEST_F(TrajectoryTest, AccumulatesMultipleMotions) {
+TEST_F(trajectory_test, AccumulatesMultipleMotions) {
     // GIVEN a trajectory
     visual_odometry::Trajectory trajectory;
 
@@ -78,7 +81,7 @@ TEST_F(TrajectoryTest, AccumulatesMultipleMotions) {
     EXPECT_NEAR(pose.translation(2), 5.0, 1e-9);
 }
 
-TEST_F(TrajectoryTest, ChainsRotationAndTranslation) {
+TEST_F(trajectory_test, ChainsRotationAndTranslation) {
     // GIVEN a trajectory
     visual_odometry::Trajectory trajectory;
 
@@ -95,7 +98,7 @@ TEST_F(TrajectoryTest, ChainsRotationAndTranslation) {
     EXPECT_NEAR(pose.translation(2), 1.0, 1e-6);  // From first motion
 }
 
-TEST_F(TrajectoryTest, RejectsInvalidMotion) {
+TEST_F(trajectory_test, RejectsInvalidMotion) {
     // GIVEN a trajectory
     visual_odometry::Trajectory trajectory;
 
@@ -108,7 +111,7 @@ TEST_F(TrajectoryTest, RejectsInvalidMotion) {
     EXPECT_TRUE(trajectory.empty());
 }
 
-TEST_F(TrajectoryTest, ProvidesAllPoses) {
+TEST_F(trajectory_test, ProvidesAllPoses) {
     // GIVEN a trajectory with multiple motions
     visual_odometry::Trajectory trajectory;
     trajectory.add_motion(forward_motion_);
@@ -126,7 +129,7 @@ TEST_F(TrajectoryTest, ProvidesAllPoses) {
     EXPECT_NEAR(poses[2].translation(2), 2.0, 1e-9);
 }
 
-TEST_F(TrajectoryTest, ResetsToOrigin) {
+TEST_F(trajectory_test, ResetsToOrigin) {
     // GIVEN a trajectory with motions
     visual_odometry::Trajectory trajectory;
     trajectory.add_motion(forward_motion_);
@@ -170,7 +173,7 @@ TEST(PoseTest, ComposeWithIdentityMotionIsUnchanged) {
     EXPECT_TRUE(result.translation.isApprox(pose.translation));
 }
 
-TEST_F(TrajectoryTest, ToJsonProducesValidJson) {
+TEST_F(trajectory_test, ToJsonProducesValidJson) {
     // GIVEN a trajectory with one motion
     visual_odometry::Trajectory trajectory;
     trajectory.add_motion(forward_motion_);
@@ -184,7 +187,7 @@ TEST_F(TrajectoryTest, ToJsonProducesValidJson) {
     EXPECT_THAT(json, testing::HasSubstr("\"translation\""));
 }
 
-TEST_F(TrajectoryTest, ToJsonContainsAllPoses) {
+TEST_F(trajectory_test, ToJsonContainsAllPoses) {
     // GIVEN a trajectory with multiple motions
     visual_odometry::Trajectory trajectory;
     trajectory.add_motion(forward_motion_);
@@ -196,7 +199,7 @@ TEST_F(TrajectoryTest, ToJsonContainsAllPoses) {
     // THEN JSON should contain expected number of poses
     // Count occurrences of "rotation" to verify 3 poses
     size_t count = 0;
-    std::string search = "\"rotation\"";
+    std::string const search = "\"rotation\"";
     size_t pos = 0;
     while ((pos = json.find(search, pos)) != std::string::npos) {
         ++count;
@@ -205,7 +208,7 @@ TEST_F(TrajectoryTest, ToJsonContainsAllPoses) {
     EXPECT_EQ(count, 3);
 }
 
-TEST_F(TrajectoryTest, SaveToJsonCreatesFile) {
+TEST_F(trajectory_test, SaveToJsonCreatesFile) {
     // GIVEN a trajectory
     visual_odometry::Trajectory trajectory;
     trajectory.add_motion(forward_motion_);
@@ -224,7 +227,7 @@ TEST_F(TrajectoryTest, SaveToJsonCreatesFile) {
 
     // AND file should contain valid JSON
     std::ifstream file(filepath);
-    std::string content((std::istreambuf_iterator<char>(file)),
+    std::string const content((std::istreambuf_iterator<char>(file)),
                         std::istreambuf_iterator<char>());
     EXPECT_THAT(content, testing::HasSubstr("\"poses\""));
 
@@ -232,9 +235,9 @@ TEST_F(TrajectoryTest, SaveToJsonCreatesFile) {
     std::filesystem::remove(filepath);
 }
 
-TEST_F(TrajectoryTest, SaveToJsonReturnsErrorForInvalidPath) {
+TEST_F(trajectory_test, SaveToJsonReturnsErrorForInvalidPath) {
     // GIVEN a trajectory
-    visual_odometry::Trajectory trajectory;
+    visual_odometry::Trajectory const trajectory;
 
     // WHEN saving to an invalid path
     auto const result = trajectory.save_to_json("/nonexistent/directory/file.json");

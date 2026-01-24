@@ -1,5 +1,14 @@
 #include <visual_odometry/feature_matcher.hpp>
 
+#include <cstddef>
+#include <span>
+#include <vector>
+
+#include <opencv2/core/mat.hpp>
+#include <opencv2/core/types.hpp>
+#include <opencv2/features2d.hpp>
+#include <opencv2/core/base.hpp>
+
 namespace visual_odometry {
 
 // Pure functional implementations

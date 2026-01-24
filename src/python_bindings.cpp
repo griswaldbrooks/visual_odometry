@@ -44,22 +44,22 @@ NB_MODULE(_visual_odometry_impl, m) {
     m.doc() = "Visual odometry library - Python bindings";
     m.attr("__version__") = "0.1.0";
 
-    // ==================== ImageLoader ====================
-    nb::class_<vo::ImageLoader>(m, "ImageLoader",
+    // ==================== image_loader ====================
+    nb::class_<vo::image_loader>(m, "image_loader",
         "Loads sequential images from a directory for visual odometry.")
 
         .def_static("create", [](std::string_view path) {
-            return unwrap_expected(vo::ImageLoader::create(path));
+            return unwrap_expected(vo::image_loader::create(path));
         }, "path"_a,
-        "Create a new ImageLoader from a directory path.\n\n"
+        "Create a new image_loader from a directory path.\n\n"
         "Args:\n"
         "    path: Path to directory containing images.\n\n"
         "Returns:\n"
-        "    ImageLoader instance.\n\n"
+        "    image_loader instance.\n\n"
         "Raises:\n"
         "    RuntimeError: If directory does not exist.")
 
-        .def("load_image", [](vo::ImageLoader const& self, size_t index) {
+        .def("load_image", [](vo::image_loader const& self, size_t index) {
             return unwrap_expected(self.load_image(index));
         }, "index"_a,
         "Load a single image by index.\n\n"
@@ -68,7 +68,7 @@ NB_MODULE(_visual_odometry_impl, m) {
         "Returns:\n"
         "    Grayscale image as numpy array.")
 
-        .def("load_image_pair", [](vo::ImageLoader const& self, size_t index) {
+        .def("load_image_pair", [](vo::image_loader const& self, size_t index) {
             return unwrap_expected(self.load_image_pair(index));
         }, "index"_a,
         "Load a pair of consecutive images.\n\n"
@@ -77,30 +77,30 @@ NB_MODULE(_visual_odometry_impl, m) {
         "Returns:\n"
         "    Tuple of (image[index], image[index+1]).")
 
-        .def("next_pair", [](vo::ImageLoader& self) {
+        .def("next_pair", [](vo::image_loader& self) {
             return unwrap_expected(self.next_pair());
         },
         "Get the next pair of images and advance the index.\n\n"
         "Returns:\n"
         "    Tuple of consecutive images.")
 
-        .def("has_next", &vo::ImageLoader::has_next,
+        .def("has_next", &vo::image_loader::has_next,
         "Check if more image pairs are available.")
 
-        .def("reset", &vo::ImageLoader::reset,
+        .def("reset", &vo::image_loader::reset,
         "Reset to the first image.")
 
-        .def("size", &vo::ImageLoader::size,
+        .def("size", &vo::image_loader::size,
         "Get total number of images.")
 
-        .def("__len__", &vo::ImageLoader::size)
+        .def("__len__", &vo::image_loader::size)
 
-        .def("__iter__", [](vo::ImageLoader& self) -> vo::ImageLoader& {
+        .def("__iter__", [](vo::image_loader& self) -> vo::image_loader& {
             self.reset();
             return self;
         }, nb::rv_policy::reference)
 
-        .def("__next__", [](vo::ImageLoader& self) {
+        .def("__next__", [](vo::image_loader& self) {
             if (!self.has_next()) {
                 throw nb::stop_iteration();
             }

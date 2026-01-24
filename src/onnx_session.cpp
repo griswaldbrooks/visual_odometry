@@ -1,18 +1,27 @@
 #include <visual_odometry/onnx_session.hpp>
 
+#include <algorithm>
+#include <cstddef>
+#include <cstdint>
+#include <filesystem>
+#include <span>
 #include <stdexcept>
+#include <vector>
+
+#include <onnxruntime_c_api.h>
+#include <onnxruntime_cxx_api.h>
 
 namespace visual_odometry {
 
-auto OnnxSession::get_env() -> Ort::Env& {
+auto onnx_session::get_env() -> Ort::Env& {
     static Ort::Env env{ORT_LOGGING_LEVEL_WARNING, "visual_odometry"};
     return env;
 }
 
-OnnxSession::OnnxSession(std::filesystem::path const& model_path)
-    : OnnxSession(model_path, Ort::SessionOptions{}) {}
+onnx_session::onnx_session(std::filesystem::path const& model_path)
+    : onnx_session(model_path, Ort::SessionOptions{}) {}
 
-OnnxSession::OnnxSession(std::filesystem::path const& model_path,
+onnx_session::onnx_session(std::filesystem::path const& model_path,
                          Ort::SessionOptions const& session_options)
     : session_{get_env(), model_path.c_str(), session_options} {
     // Cache input names
@@ -32,7 +41,7 @@ OnnxSession::OnnxSession(std::filesystem::path const& model_path,
     }
 }
 
-auto OnnxSession::run(std::span<char const* const> input_names,
+auto onnx_session::run(std::span<char const* const> input_names,
                       std::span<Ort::Value> input_tensors,
                       std::span<char const* const> output_names)
     -> std::vector<Ort::Value> {
@@ -50,7 +59,7 @@ auto OnnxSession::run(std::span<char const* const> input_names,
         output_names.size());
 }
 
-auto OnnxSession::input_shape(size_t index) const -> std::vector<int64_t> {
+auto onnx_session::input_shape(size_t index) const -> std::vector<int64_t> {
     if (index >= session_.GetInputCount()) {
         throw std::out_of_range("Input index out of range");
     }
@@ -59,7 +68,7 @@ auto OnnxSession::input_shape(size_t index) const -> std::vector<int64_t> {
     return tensor_info.GetShape();
 }
 
-auto OnnxSession::output_shape(size_t index) const -> std::vector<int64_t> {
+auto onnx_session::output_shape(size_t index) const -> std::vector<int64_t> {
     if (index >= session_.GetOutputCount()) {
         throw std::out_of_range("Output index out of range");
     }
@@ -70,22 +79,24 @@ auto OnnxSession::output_shape(size_t index) const -> std::vector<int64_t> {
 
 auto create_tensor(float const* data, std::span<int64_t const> shape)
     -> Ort::Value {
-    auto const memory_info =
-        Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault);
-
     // Calculate total size
     int64_t total_size = 1;
     for (auto const dim : shape) {
         total_size *= dim;
     }
 
-    // Create tensor (const_cast is safe - ONNX Runtime doesn't modify input data)
-    return Ort::Value::CreateTensor<float>(
-        memory_info,
-        const_cast<float*>(data),
-        static_cast<size_t>(total_size),
+    // Use allocator to create tensor and copy data
+    Ort::AllocatorWithDefaultOptions const allocator;
+    auto tensor = Ort::Value::CreateTensor<float>(
+        allocator,
         shape.data(),
         shape.size());
+
+    // Copy data into the allocated tensor
+    auto* tensor_data = tensor.GetTensorMutableData<float>();
+    std::copy(data, data + total_size, tensor_data);
+
+    return tensor;
 }
 
 auto create_tensor(std::vector<float> const& data,

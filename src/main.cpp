@@ -1,20 +1,25 @@
+#include <visual_odometry/feature_matcher.hpp>
 #include <visual_odometry/image_loader.hpp>
 #include <visual_odometry/image_matcher.hpp>
+#include <visual_odometry/matcher_concept.hpp>
 #include <visual_odometry/motion_estimator.hpp>
 #include <visual_odometry/trajectory.hpp>
-#include <visual_odometry/visual_odometry.hpp>
+
+#include <algorithm>
 #include <cstdlib>
 #include <cstring>
-#include <fstream>
+#include <exception>
 #include <iomanip>
 #include <iostream>
 #include <optional>
 #include <string>
 #include <string_view>
+#include <utility>
+#include <variant>
 
 namespace {
 
-struct Args {
+struct command_args {
     std::string image_dir;
     std::string camera_yaml = "data/kitti_camera.yaml";
     std::string output_path = "trajectory.json";
@@ -34,11 +39,11 @@ void print_usage(std::string_view program) {
               << "  --help             Show this help message\n";
 }
 
-auto parse_args(int argc, char* argv[]) -> std::optional<Args> {
-    Args args;
+auto parse_args(int argc, char* argv[]) -> std::optional<command_args> {  // NOLINT(cppcoreguidelines-avoid-c-arrays,modernize-avoid-c-arrays)
+    command_args args;
 
     for (int i = 1; i < argc; ++i) {
-        std::string_view arg = argv[i];
+        std::string_view const arg = argv[i];
 
         if (arg == "--help" || arg == "-h") {
             print_usage(argv[0]);
@@ -72,7 +77,7 @@ auto parse_args(int argc, char* argv[]) -> std::optional<Args> {
 
 }  // namespace
 
-int main(int argc, char* argv[]) {
+auto main(int argc, char* argv[]) -> int {  // NOLINT(bugprone-exception-escape)
     auto args = parse_args(argc, argv);
     if (!args) {
         return 1;
@@ -96,7 +101,7 @@ int main(int argc, char* argv[]) {
               << ", fy=" << intrinsics.fy << ")\n";
 
     // Initialize image loader
-    auto loader_result = visual_odometry::ImageLoader::create(args->image_dir);
+    auto loader_result = visual_odometry::image_loader::create(args->image_dir);
     if (!loader_result) {
         std::cerr << "Error: " << loader_result.error() << "\n";
         return 1;
@@ -117,7 +122,7 @@ int main(int argc, char* argv[]) {
         std::cerr << "Error: " << e.what() << "\n";
         return 1;
     }
-    std::cout << "Using matcher: " << std::visit([](auto const& m) { return m.name(); }, matcher) << "\n";
+    std::cout << "Using matcher: " << std::visit([](auto const& m) -> std::string { return std::string{m.name()}; }, matcher) << "\n";
 
     visual_odometry::motion_estimator_config const config{};
     visual_odometry::Trajectory trajectory;
@@ -143,7 +148,7 @@ int main(int argc, char* argv[]) {
 
         // Match features between images
         auto const match_result = std::visit(
-            [&](visual_odometry::matcher_like auto const& m) {
+            [&](visual_odometry::matcher_like auto const& m) -> visual_odometry::match_result {
                 return m.match_images(img1, img2);
             },
             matcher);

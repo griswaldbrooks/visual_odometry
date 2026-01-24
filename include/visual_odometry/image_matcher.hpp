@@ -11,9 +11,9 @@
 #include <string_view>
 #include <variant>
 
-// Forward declaration for OnnxSession (only available when onnxruntime is linked)
+// Forward declaration for onnx_session (only available when onnxruntime is linked)
 namespace visual_odometry {
-class OnnxSession;
+class onnx_session;
 }
 
 namespace visual_odometry {
@@ -81,7 +81,7 @@ struct lightglue_matcher {
     explicit lightglue_matcher(
         std::filesystem::path model_path = "models/disk_lightglue_end2end.onnx");
 
-    // Move-only (contains unique_ptr to OnnxSession)
+    // Move-only (contains unique_ptr to onnx_session)
     lightglue_matcher(lightglue_matcher const&) = delete;
     auto operator=(lightglue_matcher const&) -> lightglue_matcher& = delete;
     lightglue_matcher(lightglue_matcher&&) noexcept;
@@ -98,7 +98,7 @@ struct lightglue_matcher {
 
 private:
     std::filesystem::path model_path_;
-    std::unique_ptr<OnnxSession> session_;
+    std::unique_ptr<onnx_session> session_;
 };
 
 // Verify matcher_like concept satisfaction

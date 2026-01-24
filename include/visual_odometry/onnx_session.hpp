@@ -16,14 +16,14 @@ namespace visual_odometry {
  * Provides a simplified interface for loading ONNX models and running inference.
  * Thread-safe for concurrent inference calls on the same session.
  */
-class OnnxSession {
+class onnx_session {
 public:
     /**
      * @brief Construct an ONNX session from a model file.
      * @param model_path Path to the .onnx model file.
      * @throws Ort::Exception if model loading fails.
      */
-    explicit OnnxSession(std::filesystem::path const& model_path);
+    explicit onnx_session(std::filesystem::path const& model_path);
 
     /**
      * @brief Construct an ONNX session with custom session options.
@@ -31,15 +31,15 @@ public:
      * @param session_options Custom session options (e.g., for GPU execution).
      * @throws Ort::Exception if model loading fails.
      */
-    OnnxSession(std::filesystem::path const& model_path,
+    onnx_session(std::filesystem::path const& model_path,
                 Ort::SessionOptions const& session_options);
 
     // Move-only (Ort::Session is not copyable)
-    OnnxSession(OnnxSession const&) = delete;
-    auto operator=(OnnxSession const&) -> OnnxSession& = delete;
-    OnnxSession(OnnxSession&&) noexcept = default;
-    auto operator=(OnnxSession&&) noexcept -> OnnxSession& = default;
-    ~OnnxSession() = default;
+    onnx_session(onnx_session const&) = delete;
+    auto operator=(onnx_session const&) -> onnx_session& = delete;
+    onnx_session(onnx_session&&) noexcept = default;
+    auto operator=(onnx_session&&) noexcept -> onnx_session& = default;
+    ~onnx_session() = default;
 
     /**
      * @brief Run inference with the given inputs.

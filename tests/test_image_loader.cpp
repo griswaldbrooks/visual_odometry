@@ -1,13 +1,18 @@
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
 #include <visual_odometry/image_loader.hpp>
+
 #include <filesystem>
-#include <fstream>
+#include <string>
+
+#include <opencv2/core/hal/interface.h>
+#include <opencv2/core/mat.hpp>
+#include <opencv2/core/types.hpp>
 #include <opencv2/imgcodecs.hpp>
 
 namespace fs = std::filesystem;
 
-class ImageLoaderTest : public ::testing::Test {
+class image_loader_test : public ::testing::Test {
 protected:
     void SetUp() override {
         // Create temporary test directory with sample images
@@ -16,8 +21,8 @@ protected:
 
         // Create simple test images
         for (int i = 0; i < 5; ++i) {
-            cv::Mat img(100, 100, CV_8UC1, cv::Scalar(i * 50));
-            std::string filename = test_dir_.string() + "/" +
+            cv::Mat const img(100, 100, CV_8UC1, cv::Scalar(i * 50));
+            std::string const filename = test_dir_.string() + "/" +
                                    std::string(6 - std::to_string(i).length(), '0') +
                                    std::to_string(i) + ".png";
             cv::imwrite(filename, img);
@@ -31,10 +36,10 @@ protected:
     fs::path test_dir_;
 };
 
-TEST_F(ImageLoaderTest, LoadsImagesFromDirectory) {
+TEST_F(image_loader_test, LoadsImagesFromDirectory) {
     // GIVEN a directory with 5 images
-    // WHEN creating an ImageLoader from the directory
-    auto const loader_result = visual_odometry::ImageLoader::create(test_dir_.string());
+    // WHEN creating an image_loader from the directory
+    auto const loader_result = visual_odometry::image_loader::create(test_dir_.string());
 
     // THEN creation should succeed
     ASSERT_TRUE(loader_result.has_value());
@@ -42,9 +47,9 @@ TEST_F(ImageLoaderTest, LoadsImagesFromDirectory) {
     EXPECT_EQ(loader_result.value().size(), 5);
 }
 
-TEST_F(ImageLoaderTest, LoadsSingleImage) {
-    // GIVEN a valid ImageLoader
-    auto loader_result = visual_odometry::ImageLoader::create(test_dir_.string());
+TEST_F(image_loader_test, LoadsSingleImage) {
+    // GIVEN a valid image_loader
+    auto loader_result = visual_odometry::image_loader::create(test_dir_.string());
     ASSERT_TRUE(loader_result.has_value());
     auto& loader = loader_result.value();
 
@@ -61,9 +66,9 @@ TEST_F(ImageLoaderTest, LoadsSingleImage) {
     EXPECT_EQ(img.cols, 100);
 }
 
-TEST_F(ImageLoaderTest, LoadsImagePair) {
-    // GIVEN a valid ImageLoader
-    auto loader_result = visual_odometry::ImageLoader::create(test_dir_.string());
+TEST_F(image_loader_test, LoadsImagePair) {
+    // GIVEN a valid image_loader
+    auto loader_result = visual_odometry::image_loader::create(test_dir_.string());
     ASSERT_TRUE(loader_result.has_value());
     auto& loader = loader_result.value();
 
@@ -79,9 +84,9 @@ TEST_F(ImageLoaderTest, LoadsImagePair) {
     EXPECT_FALSE(img2.empty());
 }
 
-TEST_F(ImageLoaderTest, IteratesThroughPairs) {
-    // GIVEN a valid ImageLoader with 5 images
-    auto loader_result = visual_odometry::ImageLoader::create(test_dir_.string());
+TEST_F(image_loader_test, IteratesThroughPairs) {
+    // GIVEN a valid image_loader with 5 images
+    auto loader_result = visual_odometry::image_loader::create(test_dir_.string());
     ASSERT_TRUE(loader_result.has_value());
     auto& loader = loader_result.value();
 
@@ -102,19 +107,19 @@ TEST_F(ImageLoaderTest, IteratesThroughPairs) {
     EXPECT_EQ(count, 4);
 }
 
-TEST_F(ImageLoaderTest, ReturnsErrorOnInvalidDirectory) {
+TEST_F(image_loader_test, ReturnsErrorOnInvalidDirectory) {
     // GIVEN a nonexistent directory path
-    // WHEN creating an ImageLoader
-    auto const loader_result = visual_odometry::ImageLoader::create("/nonexistent/path");
+    // WHEN creating an image_loader
+    auto const loader_result = visual_odometry::image_loader::create("/nonexistent/path");
 
     // THEN creation should fail with an error
     ASSERT_FALSE(loader_result.has_value());
     EXPECT_THAT(loader_result.error(), testing::HasSubstr("does not exist"));
 }
 
-TEST_F(ImageLoaderTest, ReturnsErrorOnInvalidIndex) {
-    // GIVEN a valid ImageLoader
-    auto loader_result = visual_odometry::ImageLoader::create(test_dir_.string());
+TEST_F(image_loader_test, ReturnsErrorOnInvalidIndex) {
+    // GIVEN a valid image_loader
+    auto loader_result = visual_odometry::image_loader::create(test_dir_.string());
     ASSERT_TRUE(loader_result.has_value());
     auto& loader = loader_result.value();
 
@@ -126,9 +131,9 @@ TEST_F(ImageLoaderTest, ReturnsErrorOnInvalidIndex) {
     EXPECT_THAT(img_result.error(), testing::HasSubstr("out of range"));
 }
 
-TEST_F(ImageLoaderTest, ResetsToBeginning) {
+TEST_F(image_loader_test, ResetsToBeginning) {
     // GIVEN a loader that has been partially iterated
-    auto loader_result = visual_odometry::ImageLoader::create(test_dir_.string());
+    auto loader_result = visual_odometry::image_loader::create(test_dir_.string());
     ASSERT_TRUE(loader_result.has_value());
     auto& loader = loader_result.value();
     (void)loader.next_pair();
@@ -144,13 +149,13 @@ TEST_F(ImageLoaderTest, ResetsToBeginning) {
     EXPECT_FALSE(pair_result.value().first.empty());
 }
 
-TEST_F(ImageLoaderTest, HandlesEmptyDirectory) {
+TEST_F(image_loader_test, HandlesEmptyDirectory) {
     // GIVEN an empty directory
     auto const empty_dir = fs::temp_directory_path() / "vo_empty_test";
     fs::create_directories(empty_dir);
 
-    // WHEN creating an ImageLoader
-    auto const loader_result = visual_odometry::ImageLoader::create(empty_dir.string());
+    // WHEN creating an image_loader
+    auto const loader_result = visual_odometry::image_loader::create(empty_dir.string());
 
     // THEN creation should succeed
     ASSERT_TRUE(loader_result.has_value());

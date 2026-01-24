@@ -1,7 +1,14 @@
 #include <gtest/gtest.h>
 #include <visual_odometry/onnx_session.hpp>
 
+#include <cstddef>
+#include <cstdint>
 #include <filesystem>
+#include <iostream>
+#include <stdexcept>
+#include <vector>
+
+#include <onnxruntime_cxx_api.h>
 
 namespace {
 
@@ -22,36 +29,36 @@ auto find_model_path() -> std::filesystem::path {
     return "models/disk_lightglue_end2end.onnx";  // Return default (will fail)
 }
 
-auto const kTestModelPath = find_model_path();
+auto const k_test_model_path = find_model_path();
 
 auto model_exists() -> bool {
-    return std::filesystem::exists(kTestModelPath);
+    return std::filesystem::exists(k_test_model_path);
 }
 
 }  // namespace
 
-class OnnxSessionTest : public ::testing::Test {
+class onnx_session_test : public ::testing::Test {
 protected:
     void SetUp() override {
         if (!model_exists()) {
-            GTEST_SKIP() << "Test model not found: " << kTestModelPath;
+            GTEST_SKIP() << "Test model not found: " << k_test_model_path;
         }
     }
 };
 
-TEST_F(OnnxSessionTest, LoadsModelSuccessfully) {
+TEST_F(onnx_session_test, LoadsModelSuccessfully) {
     // GIVEN a valid ONNX model path
-    // WHEN creating an OnnxSession
-    visual_odometry::OnnxSession session{kTestModelPath};
+    // WHEN creating an onnx_session
+    visual_odometry::onnx_session const session{k_test_model_path};
 
     // THEN the session should have inputs and outputs
     EXPECT_GT(session.num_inputs(), 0);
     EXPECT_GT(session.num_outputs(), 0);
 }
 
-TEST_F(OnnxSessionTest, ReturnsInputNames) {
+TEST_F(onnx_session_test, ReturnsInputNames) {
     // GIVEN a loaded ONNX session
-    visual_odometry::OnnxSession session{kTestModelPath};
+    visual_odometry::onnx_session const session{k_test_model_path};
 
     // WHEN getting input names
     auto const& names = session.input_names();
@@ -63,9 +70,9 @@ TEST_F(OnnxSessionTest, ReturnsInputNames) {
     }
 }
 
-TEST_F(OnnxSessionTest, ReturnsOutputNames) {
+TEST_F(onnx_session_test, ReturnsOutputNames) {
     // GIVEN a loaded ONNX session
-    visual_odometry::OnnxSession session{kTestModelPath};
+    visual_odometry::onnx_session const session{k_test_model_path};
 
     // WHEN getting output names
     auto const& names = session.output_names();
@@ -77,9 +84,9 @@ TEST_F(OnnxSessionTest, ReturnsOutputNames) {
     }
 }
 
-TEST_F(OnnxSessionTest, ReturnsInputShape) {
+TEST_F(onnx_session_test, ReturnsInputShape) {
     // GIVEN a loaded ONNX session
-    visual_odometry::OnnxSession session{kTestModelPath};
+    visual_odometry::onnx_session const session{k_test_model_path};
 
     // WHEN getting input shape for first input
     auto const shape = session.input_shape(0);
@@ -94,7 +101,9 @@ TEST_F(OnnxSessionTest, ReturnsInputShape) {
         std::cout << "  " << session.input_names()[i] << ": [";
         auto const s = session.input_shape(i);
         for (size_t j = 0; j < s.size(); ++j) {
-            if (j > 0) std::cout << ", ";
+            if (j > 0) {
+                std::cout << ", ";
+            }
             std::cout << s[j];
         }
         std::cout << "]\n";
@@ -104,7 +113,9 @@ TEST_F(OnnxSessionTest, ReturnsInputShape) {
         std::cout << "  " << session.output_names()[i] << ": [";
         auto const s = session.output_shape(i);
         for (size_t j = 0; j < s.size(); ++j) {
-            if (j > 0) std::cout << ", ";
+            if (j > 0) {
+                std::cout << ", ";
+            }
             std::cout << s[j];
         }
         std::cout << "]\n";
@@ -112,28 +123,28 @@ TEST_F(OnnxSessionTest, ReturnsInputShape) {
     std::cout << "==================\n\n";
 }
 
-TEST_F(OnnxSessionTest, ThrowsOnInvalidInputIndex) {
+TEST_F(onnx_session_test, ThrowsOnInvalidInputIndex) {
     // GIVEN a loaded ONNX session
-    visual_odometry::OnnxSession session{kTestModelPath};
+    visual_odometry::onnx_session const session{k_test_model_path};
 
     // WHEN requesting shape for invalid index
     // THEN should throw out_of_range
     EXPECT_THROW(session.input_shape(999), std::out_of_range);
 }
 
-TEST(OnnxSessionErrorTest, ThrowsOnMissingFile) {
+TEST(onnx_sessionErrorTest, ThrowsOnMissingFile) {
     // GIVEN a non-existent model path
     auto const bad_path = std::filesystem::path{"nonexistent_model.onnx"};
 
-    // WHEN creating an OnnxSession
+    // WHEN creating an onnx_session
     // THEN should throw Ort::Exception
-    EXPECT_THROW(visual_odometry::OnnxSession{bad_path}, Ort::Exception);
+    EXPECT_THROW(visual_odometry::onnx_session{bad_path}, Ort::Exception);
 }
 
 TEST(CreateTensorTest, CreatesTensorFromData) {
     // GIVEN float data and shape
-    std::vector<float> data{1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f};
-    std::vector<int64_t> shape{2, 3};
+    std::vector<float> const data{1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f};
+    std::vector<int64_t> const shape{2, 3};
 
     // WHEN creating a tensor
     auto tensor = visual_odometry::create_tensor(data, shape);

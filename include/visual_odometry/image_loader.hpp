@@ -15,15 +15,15 @@ namespace visual_odometry {
  *
  * Supports PNG and JPEG images. Images are sorted alphabetically by filename.
  */
-class ImageLoader {
+class image_loader {
 public:
     /**
      * @brief Create a new Image Loader.
      * @param image_directory Path to directory containing images.
-     * @return ImageLoader or error message if directory does not exist.
+     * @return image_loader or error message if directory does not exist.
      */
     [[nodiscard]] static auto create(std::string_view image_directory)
-        -> tl::expected<ImageLoader, std::string>;
+        -> tl::expected<image_loader, std::string>;
 
     /**
      * @brief Load a single image by index.
@@ -67,7 +67,7 @@ public:
 
 private:
     // Private constructor - use create() factory
-    explicit ImageLoader(std::string image_directory, std::vector<std::string> image_paths);
+    explicit image_loader(std::string image_directory, std::vector<std::string> image_paths);
 
     auto load_image_paths() -> tl::expected<void, std::string>;
 

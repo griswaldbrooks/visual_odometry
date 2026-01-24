@@ -1,8 +1,15 @@
 #include <gtest/gtest.h>
+#include <visual_odometry/feature_matcher.hpp>
 #include <visual_odometry/image_matcher.hpp>
-#include <opencv2/imgproc.hpp>
 
+#include <exception>
 #include <filesystem>
+#include <string>
+#include <variant>
+#include <vector>
+
+#include <opencv2/core.hpp>
+#include <opencv2/core/hal/interface.h>
 
 namespace {
 
@@ -23,19 +30,19 @@ auto find_model_path() -> std::filesystem::path {
     return "models/disk_lightglue_end2end.onnx";  // Return default (will fail)
 }
 
-auto const kTestModelPath = find_model_path();
+auto const k_test_model_path = find_model_path();
 
 auto model_exists() -> bool {
-    return std::filesystem::exists(kTestModelPath);
+    return std::filesystem::exists(k_test_model_path);
 }
 
 }  // namespace
 
-class LightGlueMatcherTest : public ::testing::Test {
+class lightglue_matcher_test : public ::testing::Test {
 protected:
     void SetUp() override {
         if (!model_exists()) {
-            GTEST_SKIP() << "LightGlue model not found: " << kTestModelPath;
+            GTEST_SKIP() << "LightGlue model not found: " << k_test_model_path;
         }
 
         // Create two similar test images (shifted checkerboard)
@@ -64,18 +71,18 @@ protected:
     cv::Mat image2_;
 };
 
-TEST_F(LightGlueMatcherTest, LoadsModelSuccessfully) {
+TEST_F(lightglue_matcher_test, LoadsModelSuccessfully) {
     // GIVEN a valid LightGlue model path
     // WHEN creating a lightglue_matcher
-    visual_odometry::lightglue_matcher matcher{kTestModelPath};
+    visual_odometry::lightglue_matcher const matcher{k_test_model_path};
 
     // THEN the matcher should load without throwing
     EXPECT_EQ(matcher.name(), "LightGlue");
 }
 
-TEST_F(LightGlueMatcherTest, MatchesSimilarImages) {
+TEST_F(lightglue_matcher_test, MatchesSimilarImages) {
     // GIVEN a LightGlue matcher
-    visual_odometry::lightglue_matcher matcher{kTestModelPath};
+    visual_odometry::lightglue_matcher const matcher{k_test_model_path};
 
     // WHEN matching two similar images
     // Note: Some ONNX models may have operators not supported on CPU
@@ -97,9 +104,9 @@ TEST_F(LightGlueMatcherTest, MatchesSimilarImages) {
     EXPECT_GT(result.points2.size(), 0) << "Expected non-empty matches";
 }
 
-TEST_F(LightGlueMatcherTest, PointArraysHaveEqualSize) {
+TEST_F(lightglue_matcher_test, PointArraysHaveEqualSize) {
     // GIVEN a LightGlue matcher
-    visual_odometry::lightglue_matcher matcher{kTestModelPath};
+    visual_odometry::lightglue_matcher const matcher{k_test_model_path};
 
     // WHEN matching two images
     // Skip if model has CPU-unsupported operators
@@ -124,9 +131,9 @@ TEST_F(LightGlueMatcherTest, PointArraysHaveEqualSize) {
         << "matches array should match points array size";
 }
 
-TEST_F(LightGlueMatcherTest, ReturnsCorrectName) {
+TEST_F(lightglue_matcher_test, ReturnsCorrectName) {
     // GIVEN a LightGlue matcher
-    visual_odometry::lightglue_matcher matcher{kTestModelPath};
+    visual_odometry::lightglue_matcher const matcher{k_test_model_path};
 
     // THEN name should be "LightGlue"
     EXPECT_EQ(matcher.name(), "LightGlue");
@@ -145,7 +152,7 @@ TEST(LightGlueMatcherFactoryTest, CanBeCreatedViaFactory) {
         auto matcher = visual_odometry::create_image_matcher("lightglue");
 
         // THEN matcher should be a lightglue_matcher
-        EXPECT_EQ(std::visit([](auto const& m) { return m.name(); }, matcher), "LightGlue");
+        EXPECT_EQ(std::visit([](auto const& m) -> std::string_view { return m.name(); }, matcher), "LightGlue");
     } catch (std::exception const& e) {
         // Factory uses default path which may not be accessible from test directory
         std::string const msg = e.what();

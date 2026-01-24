@@ -6,9 +6,9 @@
 namespace visual_odometry {
 
 // Placeholder for visual odometry implementation
-class VisualOdometry {
+class visual_odometry_pipeline {
 public:
-    VisualOdometry() = default;
+    visual_odometry_pipeline() = default;
 };
 
 }  // namespace visual_odometry
