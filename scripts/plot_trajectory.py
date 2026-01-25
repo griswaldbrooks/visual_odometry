@@ -355,7 +355,7 @@ def main() -> None:
     timestamps = interp.timestamps - interp.timestamps[0]
 
     # Create plot
-    title = args.trajectory.name
+    title = str(args.trajectory)
     html = create_plot_html(timestamps, interp.positions, title, images_b64)
 
     # Write to temp file and open
