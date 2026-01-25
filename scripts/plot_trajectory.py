@@ -125,9 +125,12 @@ def main() -> None:
     print(f"  Duration: {interp.duration:.2f}s")
     print(f"  Time range: [{interp.start_time:.2f}, {interp.end_time:.2f}]")
 
+    # Make timestamps relative to first sample
+    timestamps = interp.timestamps - interp.timestamps[0]
+
     # Create plot
     title = args.trajectory.name
-    html = create_plot_html(interp.timestamps, interp.positions, title)
+    html = create_plot_html(timestamps, interp.positions, title)
 
     # Write to temp file and open
     with tempfile.NamedTemporaryFile(mode="w", suffix=".html", delete=False) as f:

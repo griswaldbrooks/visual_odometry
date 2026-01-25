@@ -83,12 +83,13 @@ def create_plot_html(
 
     Returns HTML string with embedded plotly charts.
     """
-    # Get data
-    gt_t = gt_interp.timestamps
+    # Get data - make timestamps relative to earliest sample
+    t0 = min(gt_interp.timestamps[0], est_interp.timestamps[0])
+    gt_t = gt_interp.timestamps - t0
     gt_pos = gt_interp.positions
-    est_t = est_interp.timestamps
+    est_t = est_interp.timestamps - t0
     est_pos = est_interp.positions
-    err_t = error_result.timestamps
+    err_t = error_result.timestamps - t0
     err_pos = error_result.position_errors
     err_total = error_result.total_errors
 
