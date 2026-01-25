@@ -88,6 +88,11 @@ catch2/
 *.bak
 *.backup
 
+# Datasets (large downloads)
+data/tum/rgbd_dataset_*/
+data/kitti/sequences/*/image_*/*.png
+data/kitti/poses/
+
 # SonarCloud
 .sonar/
 .scannerwork/
