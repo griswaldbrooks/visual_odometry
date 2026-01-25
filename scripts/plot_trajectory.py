@@ -388,9 +388,30 @@ def main() -> None:
         image_data = get_image_paths_with_timestamps(args.images)
         print(f"  Found {len(image_data)} images")
 
+        # Get image time range
+        img_start = image_data[0][0]
+        img_end = image_data[-1][0]
+        print(f"  Image time range: [{img_start:.3f}, {img_end:.3f}]")
+
+        # Clip trajectory to image time range
+        mask = (interp.timestamps >= img_start) & (interp.timestamps <= img_end)
+        clipped_timestamps = interp.timestamps[mask]
+        clipped_positions = interp.positions[mask]
+        clipped_quaternions = interp.quaternions[mask]
+
+        n_before = (interp.timestamps < img_start).sum()
+        n_after = (interp.timestamps > img_end).sum()
+        if n_before > 0 or n_after > 0:
+            print(f"  Clipping trajectory: {n_before} poses before, {n_after} after images")
+            print(f"  Using {len(clipped_timestamps)} of {len(interp)} poses")
+
+        # Update to use clipped data
+        from trajectory_utils import TrajectoryInterpolator
+        interp = TrajectoryInterpolator(clipped_timestamps, clipped_positions, clipped_quaternions)
+
         # Match images to trajectory timestamps
         image_paths = match_images_to_timestamps(interp.timestamps.tolist(), image_data)
-        print(f"  Matched to {len(set(image_paths))} unique images (by timestamp)")
+        print(f"  Matched to {len(set(image_paths))} unique images")
 
     # Make timestamps relative to first sample
     timestamps = interp.timestamps - interp.timestamps[0]
