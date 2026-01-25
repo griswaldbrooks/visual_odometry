@@ -7,9 +7,11 @@ Usage:
     python scripts/plot_trajectory.py trajectory.json
     python scripts/plot_trajectory.py data/tum/.../groundtruth.txt
     python scripts/plot_trajectory.py /tmp/circle.txt --fps 30
+    python scripts/plot_trajectory.py trajectory.json --images data/tum/.../rgb
 """
 
 import argparse
+import base64
 import webbrowser
 import tempfile
 from pathlib import Path
@@ -20,13 +22,51 @@ sys.path.insert(0, str(Path(__file__).parent))
 from trajectory_utils import load_trajectory
 
 
-def create_plot_html(timestamps, positions, title: str) -> str:
+def load_images_as_base64(image_dir: Path, max_images: int = None) -> list[str]:
+    """Load images from directory and encode as base64 data URIs."""
+    image_extensions = {'.png', '.jpg', '.jpeg'}
+    image_paths = sorted([
+        p for p in image_dir.iterdir()
+        if p.suffix.lower() in image_extensions
+    ])
+
+    if max_images:
+        image_paths = image_paths[:max_images]
+
+    images_b64 = []
+    for path in image_paths:
+        with open(path, 'rb') as f:
+            data = base64.b64encode(f.read()).decode('utf-8')
+            ext = path.suffix.lower()
+            mime = 'image/jpeg' if ext in ['.jpg', '.jpeg'] else 'image/png'
+            images_b64.append(f"data:{mime};base64,{data}")
+
+    return images_b64
+
+
+def create_plot_html(timestamps, positions, title: str, images_b64: list[str] = None) -> str:
     """Create HTML with plotly X/Y/Z vs time plots and 3D view with synced slider."""
 
     t = timestamps.tolist()
     x = positions[:, 0].tolist()
     y = positions[:, 1].tolist()
     z = positions[:, 2].tolist()
+
+    has_images = images_b64 and len(images_b64) > 0
+    images_json = str(images_b64) if has_images else "[]"
+
+    # Adjust layout based on whether we have images
+    if has_images:
+        container_style = "display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px;"
+        image_section = """
+        <div class="image-panel">
+            <h3>Frame Image</h3>
+            <img id="frame-image" src="" alt="Frame image" style="max-width: 100%; border-radius: 4px;">
+            <div id="image-info" style="color: #888; margin-top: 5px; font-size: 12px;"></div>
+        </div>"""
+    else:
+        container_style = "display: flex; flex-wrap: wrap; gap: 15px;"
+        image_section = ""
 
     html = f"""
 <!DOCTYPE html>
@@ -74,6 +114,8 @@ def create_plot_html(timestamps, positions, title: str) -> str:
         .right {{ flex: 1; min-width: 400px; }}
         .plot {{ width: 100%; height: 200px; margin-bottom: 8px; }}
         .plot3d {{ width: 100%; height: 480px; }}
+        .image-panel {{ background: #2a2a2a; padding: 15px; border-radius: 8px; }}
+        .image-panel h3 {{ margin: 0 0 10px 0; color: #4CAF50; }}
     </style>
 </head>
 <body>
@@ -95,7 +137,7 @@ def create_plot_html(timestamps, positions, title: str) -> str:
         </div>
     </div>
 
-    <div class="container">
+    <div class="container" style="{container_style}">
         <div class="left">
             <div id="plot_x" class="plot"></div>
             <div id="plot_y" class="plot"></div>
@@ -104,6 +146,7 @@ def create_plot_html(timestamps, positions, title: str) -> str:
         <div class="right">
             <div id="plot_3d" class="plot3d"></div>
         </div>
+        {image_section}
     </div>
 
     <script>
@@ -111,6 +154,7 @@ def create_plot_html(timestamps, positions, title: str) -> str:
         var x = {x};
         var y = {y};
         var z = {z};
+        var images = {images_json};
 
         var layout_base = {{
             paper_bgcolor: '#1a1a1a',
@@ -196,6 +240,9 @@ def create_plot_html(timestamps, positions, title: str) -> str:
         var frameDisplay = document.getElementById('frame-display');
         var posDisplay = document.getElementById('pos-display');
 
+        var frameImage = document.getElementById('frame-image');
+        var imageInfo = document.getElementById('image-info');
+
         function updatePosition(idx) {{
             var currentT = t[idx];
             var currentX = x[idx];
@@ -214,6 +261,24 @@ def create_plot_html(timestamps, positions, title: str) -> str:
 
             // Update 3D plot current marker
             Plotly.restyle('plot_3d', {{ x: [[currentX]], y: [[currentY]], z: [[currentZ]] }}, [3]);
+
+            // Update image if available
+            if (images.length > 0 && frameImage) {{
+                var imgIdx = Math.min(idx, images.length - 1);
+                frameImage.src = images[imgIdx];
+                if (imageInfo) {{
+                    imageInfo.textContent = 'Image ' + imgIdx + ' of ' + images.length;
+                    if (idx >= images.length) {{
+                        imageInfo.textContent += ' (trajectory extends beyond images)';
+                    }}
+                }}
+            }}
+        }}
+
+        // Initialize image on load
+        if (images.length > 0 && frameImage) {{
+            frameImage.src = images[0];
+            if (imageInfo) imageInfo.textContent = 'Image 0 of ' + images.length;
         }}
 
         slider.addEventListener('input', function() {{
@@ -260,6 +325,12 @@ def main() -> None:
         help="FPS for formats without timestamps (default: 10)",
     )
     parser.add_argument(
+        "--images",
+        type=Path,
+        default=None,
+        help="Path to image directory (shows corresponding frame)",
+    )
+    parser.add_argument(
         "--no-browser",
         action="store_true",
         help="Don't open browser, just print HTML path",
@@ -273,12 +344,19 @@ def main() -> None:
     print(f"  Duration: {interp.duration:.2f}s")
     print(f"  Time range: [{interp.start_time:.2f}, {interp.end_time:.2f}]")
 
+    # Load images if provided
+    images_b64 = None
+    if args.images and args.images.exists():
+        print(f"Loading images from {args.images}")
+        images_b64 = load_images_as_base64(args.images, max_images=len(interp))
+        print(f"  Loaded {len(images_b64)} images")
+
     # Make timestamps relative to first sample
     timestamps = interp.timestamps - interp.timestamps[0]
 
     # Create plot
     title = args.trajectory.name
-    html = create_plot_html(timestamps, interp.positions, title)
+    html = create_plot_html(timestamps, interp.positions, title, images_b64)
 
     # Write to temp file and open
     with tempfile.NamedTemporaryFile(mode="w", suffix=".html", delete=False) as f:
