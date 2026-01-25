@@ -53,16 +53,25 @@ def get_image_paths_with_timestamps(image_dir: Path) -> list[tuple[float, str]]:
 def match_images_to_timestamps(
     trajectory_timestamps: list[float],
     image_data: list[tuple[float, str]],
-) -> list[str]:
+    max_time_diff: float = 0.1,
+) -> list[str | None]:
     """Match trajectory timestamps to nearest images.
 
     For each trajectory timestamp, finds the image with the closest timestamp.
-    Returns list of image paths aligned with trajectory timestamps.
+    Returns None for timestamps outside the image time range (beyond max_time_diff).
+
+    Args:
+        trajectory_timestamps: List of trajectory timestamps
+        image_data: List of (timestamp, path) tuples
+        max_time_diff: Maximum time difference to consider a match (seconds)
+
+    Returns:
+        List of image paths (or None) aligned with trajectory timestamps.
     """
     import numpy as np
 
     if not image_data:
-        return []
+        return [None] * len(trajectory_timestamps)
 
     image_timestamps = np.array([t for t, _ in image_data])
     image_paths = [p for _, p in image_data]
@@ -70,13 +79,19 @@ def match_images_to_timestamps(
     matched_paths = []
     for t in trajectory_timestamps:
         # Find closest image timestamp
-        idx = np.argmin(np.abs(image_timestamps - t))
-        matched_paths.append(image_paths[idx])
+        diffs = np.abs(image_timestamps - t)
+        idx = np.argmin(diffs)
+
+        # Only match if within max_time_diff
+        if diffs[idx] <= max_time_diff:
+            matched_paths.append(image_paths[idx])
+        else:
+            matched_paths.append(None)
 
     return matched_paths
 
 
-def create_plot_html(timestamps, positions, title: str, image_paths: list[str] = None) -> str:
+def create_plot_html(timestamps, positions, title: str, image_paths: list[str | None] = None) -> str:
     """Create HTML with plotly X/Y/Z vs time plots and 3D view with synced slider."""
 
     t = timestamps.tolist()
@@ -85,12 +100,19 @@ def create_plot_html(timestamps, positions, title: str, image_paths: list[str] =
     z = positions[:, 2].tolist()
 
     has_images = image_paths and len(image_paths) > 0
-    # Convert to file:// URLs for local viewing
+    # Convert to file:// URLs for local viewing, keep None as null
     if has_images:
-        image_urls = [f"file://{p}" for p in image_paths]
-        images_json = str(image_urls)
+        image_urls = [f"file://{p}" if p else None for p in image_paths]
+        # Build JSON manually to handle None -> null
+        images_json = "[" + ",".join(
+            f'"{url}"' if url else "null" for url in image_urls
+        ) + "]"
+        # Calculate coverage for the indicator bar
+        coverage = [1 if p else 0 for p in image_paths]
+        coverage_json = str(coverage)
     else:
         images_json = "[]"
+        coverage_json = "[]"
 
     # Adjust layout based on whether we have images
     if has_images:
@@ -98,7 +120,12 @@ def create_plot_html(timestamps, positions, title: str, image_paths: list[str] =
         image_section = """
         <div class="image-panel">
             <h3>Frame Image</h3>
-            <img id="frame-image" src="" alt="Frame image" style="max-width: 100%; border-radius: 4px;">
+            <div id="image-container">
+                <img id="frame-image" src="" alt="Frame image" style="max-width: 100%; border-radius: 4px; display: none;">
+                <div id="no-image" style="display: none; padding: 40px; text-align: center; background: #333; border-radius: 4px; color: #888;">
+                    No image for this timestamp
+                </div>
+            </div>
             <div id="image-info" style="color: #888; margin-top: 5px; font-size: 12px;"></div>
         </div>"""
     else:
@@ -124,7 +151,9 @@ def create_plot_html(timestamps, positions, title: str, image_paths: list[str] =
             background: #2a2a2a;
             padding: 15px;
             border-radius: 8px;
-            margin-bottom: 15px;
+            margin-top: 15px;
+            position: sticky;
+            bottom: 10px;
         }}
         .slider-container label {{
             display: block;
@@ -146,6 +175,22 @@ def create_plot_html(timestamps, positions, title: str, image_paths: list[str] =
             color: #ff9800;
             font-family: monospace;
         }}
+        .coverage-bar {{
+            height: 8px;
+            background: #333;
+            border-radius: 4px;
+            margin-top: 8px;
+            overflow: hidden;
+            display: flex;
+        }}
+        .coverage-segment {{
+            height: 100%;
+        }}
+        .coverage-label {{
+            font-size: 11px;
+            color: #666;
+            margin-top: 4px;
+        }}
         .container {{ display: flex; flex-wrap: wrap; gap: 15px; }}
         .left {{ flex: 1; min-width: 400px; }}
         .right {{ flex: 1; min-width: 400px; }}
@@ -165,15 +210,6 @@ def create_plot_html(timestamps, positions, title: str, image_paths: list[str] =
         Z range: [{min(z):.2f}, {max(z):.2f}]
     </div>
 
-    <div class="slider-container">
-        <label>Time Scrubber: <span id="time-display" class="current-pos">0.00s</span></label>
-        <input type="range" id="time-slider" min="0" max="{len(timestamps)-1}" value="0" step="1">
-        <div class="slider-info">
-            <span>Frame: <span id="frame-display">0</span> / {len(timestamps)-1}</span>
-            <span class="current-pos">Position: (<span id="pos-display">0, 0, 0</span>)</span>
-        </div>
-    </div>
-
     <div class="container" style="{container_style}">
         <div class="left">
             <div id="plot_x" class="plot"></div>
@@ -186,12 +222,24 @@ def create_plot_html(timestamps, positions, title: str, image_paths: list[str] =
         {image_section}
     </div>
 
+    <div class="slider-container">
+        <label>Time Scrubber: <span id="time-display" class="current-pos">0.00s</span></label>
+        <input type="range" id="time-slider" min="0" max="{len(timestamps)-1}" value="0" step="1">
+        <div class="slider-info">
+            <span>Frame: <span id="frame-display">0</span> / {len(timestamps)-1}</span>
+            <span class="current-pos">Position: (<span id="pos-display">0, 0, 0</span>)</span>
+        </div>
+        <div id="coverage-bar" class="coverage-bar"></div>
+        <div class="coverage-label"><span style="color:#4CAF50;">■</span> Has image &nbsp; <span style="color:#333;">■</span> No image</div>
+    </div>
+
     <script>
         var t = {t};
         var x = {x};
         var y = {y};
         var z = {z};
         var images = {images_json};
+        var coverage = {coverage_json};
 
         var layout_base = {{
             paper_bgcolor: '#1a1a1a',
@@ -278,7 +326,36 @@ def create_plot_html(timestamps, positions, title: str, image_paths: list[str] =
         var posDisplay = document.getElementById('pos-display');
 
         var frameImage = document.getElementById('frame-image');
+        var noImage = document.getElementById('no-image');
         var imageInfo = document.getElementById('image-info');
+
+        // Build coverage bar
+        if (coverage.length > 0) {{
+            var coverageBar = document.getElementById('coverage-bar');
+            var segments = [];
+            var currentVal = coverage[0];
+            var count = 1;
+
+            for (var i = 1; i < coverage.length; i++) {{
+                if (coverage[i] === currentVal) {{
+                    count++;
+                }} else {{
+                    segments.push({{val: currentVal, count: count}});
+                    currentVal = coverage[i];
+                    count = 1;
+                }}
+            }}
+            segments.push({{val: currentVal, count: count}});
+
+            var total = coverage.length;
+            segments.forEach(function(seg) {{
+                var div = document.createElement('div');
+                div.className = 'coverage-segment';
+                div.style.width = (seg.count / total * 100) + '%';
+                div.style.backgroundColor = seg.val ? '#4CAF50' : '#333';
+                coverageBar.appendChild(div);
+            }});
+        }}
 
         function updatePosition(idx) {{
             var currentT = t[idx];
@@ -300,23 +377,23 @@ def create_plot_html(timestamps, positions, title: str, image_paths: list[str] =
             Plotly.restyle('plot_3d', {{ x: [[currentX]], y: [[currentY]], z: [[currentZ]] }}, [3]);
 
             // Update image if available
-            if (images.length > 0 && frameImage) {{
-                var imgIdx = Math.min(idx, images.length - 1);
-                frameImage.src = images[imgIdx];
-                if (imageInfo) {{
-                    imageInfo.textContent = 'Image ' + imgIdx + ' of ' + images.length;
-                    if (idx >= images.length) {{
-                        imageInfo.textContent += ' (trajectory extends beyond images)';
-                    }}
+            if (images.length > 0 && frameImage && noImage) {{
+                var imgUrl = images[idx];
+                if (imgUrl) {{
+                    frameImage.src = imgUrl;
+                    frameImage.style.display = 'block';
+                    noImage.style.display = 'none';
+                    if (imageInfo) imageInfo.textContent = 'Frame ' + idx;
+                }} else {{
+                    frameImage.style.display = 'none';
+                    noImage.style.display = 'block';
+                    if (imageInfo) imageInfo.textContent = 'No image available for this timestamp';
                 }}
             }}
         }}
 
-        // Initialize image on load
-        if (images.length > 0 && frameImage) {{
-            frameImage.src = images[0];
-            if (imageInfo) imageInfo.textContent = 'Image 0 of ' + images.length;
-        }}
+        // Initialize
+        updatePosition(0);
 
         slider.addEventListener('input', function() {{
             updatePosition(parseInt(this.value));
@@ -393,25 +470,11 @@ def main() -> None:
         img_end = image_data[-1][0]
         print(f"  Image time range: [{img_start:.3f}, {img_end:.3f}]")
 
-        # Clip trajectory to image time range
-        mask = (interp.timestamps >= img_start) & (interp.timestamps <= img_end)
-        clipped_timestamps = interp.timestamps[mask]
-        clipped_positions = interp.positions[mask]
-        clipped_quaternions = interp.quaternions[mask]
-
-        n_before = (interp.timestamps < img_start).sum()
-        n_after = (interp.timestamps > img_end).sum()
-        if n_before > 0 or n_after > 0:
-            print(f"  Clipping trajectory: {n_before} poses before, {n_after} after images")
-            print(f"  Using {len(clipped_timestamps)} of {len(interp)} poses")
-
-        # Update to use clipped data
-        from trajectory_utils import TrajectoryInterpolator
-        interp = TrajectoryInterpolator(clipped_timestamps, clipped_positions, clipped_quaternions)
-
-        # Match images to trajectory timestamps
+        # Match images to trajectory timestamps (returns None for out-of-range)
         image_paths = match_images_to_timestamps(interp.timestamps.tolist(), image_data)
-        print(f"  Matched to {len(set(image_paths))} unique images")
+        n_matched = sum(1 for p in image_paths if p is not None)
+        n_missing = len(image_paths) - n_matched
+        print(f"  Matched: {n_matched} poses with images, {n_missing} without")
 
     # Make timestamps relative to first sample
     timestamps = interp.timestamps - interp.timestamps[0]
