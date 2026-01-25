@@ -21,7 +21,7 @@ from trajectory_utils import load_trajectory
 
 
 def create_plot_html(timestamps, positions, title: str) -> str:
-    """Create HTML with plotly X/Y/Z vs time plots."""
+    """Create HTML with plotly X/Y/Z vs time plots and 3D view."""
 
     t = timestamps.tolist()
     x = positions[:, 0].tolist()
@@ -43,7 +43,11 @@ def create_plot_html(timestamps, positions, title: str) -> str:
         }}
         h1 {{ color: #4CAF50; margin-bottom: 5px; }}
         .info {{ color: #888; margin-bottom: 20px; }}
-        .plot {{ width: 100%; height: 280px; margin-bottom: 15px; }}
+        .container {{ display: flex; flex-wrap: wrap; gap: 15px; }}
+        .left {{ flex: 1; min-width: 400px; }}
+        .right {{ flex: 1; min-width: 400px; }}
+        .plot {{ width: 100%; height: 220px; margin-bottom: 10px; }}
+        .plot3d {{ width: 100%; height: 500px; }}
     </style>
 </head>
 <body>
@@ -56,9 +60,16 @@ def create_plot_html(timestamps, positions, title: str) -> str:
         Z range: [{min(z):.2f}, {max(z):.2f}]
     </div>
 
-    <div id="plot_x" class="plot"></div>
-    <div id="plot_y" class="plot"></div>
-    <div id="plot_z" class="plot"></div>
+    <div class="container">
+        <div class="left">
+            <div id="plot_x" class="plot"></div>
+            <div id="plot_y" class="plot"></div>
+            <div id="plot_z" class="plot"></div>
+        </div>
+        <div class="right">
+            <div id="plot_3d" class="plot3d"></div>
+        </div>
+    </div>
 
     <script>
         var layout_base = {{
@@ -89,6 +100,46 @@ def create_plot_html(timestamps, positions, title: str) -> str:
             {{ x: t, y: z, type: 'scatter', mode: 'lines', name: 'Z',
                line: {{ color: '#2196F3', width: 2 }} }}
         ], {{...layout_base, title: 'Z vs Time', yaxis: {{...layout_base.yaxis, title: 'Z (m)'}}}});
+
+        // 3D trajectory plot
+        Plotly.newPlot('plot_3d', [
+            {{
+                x: x, y: y, z: z,
+                type: 'scatter3d',
+                mode: 'lines+markers',
+                name: 'Trajectory',
+                line: {{ color: '#ff9800', width: 4 }},
+                marker: {{ size: 2, color: t, colorscale: 'Viridis', showscale: true,
+                           colorbar: {{ title: 'Time (s)', tickfont: {{ color: '#fff' }} }} }}
+            }},
+            {{
+                x: [x[0]], y: [y[0]], z: [z[0]],
+                type: 'scatter3d',
+                mode: 'markers',
+                name: 'Start',
+                marker: {{ size: 8, color: '#4CAF50', symbol: 'circle' }}
+            }},
+            {{
+                x: [x[x.length-1]], y: [y[y.length-1]], z: [z[z.length-1]],
+                type: 'scatter3d',
+                mode: 'markers',
+                name: 'End',
+                marker: {{ size: 8, color: '#f44336', symbol: 'diamond' }}
+            }}
+        ], {{
+            paper_bgcolor: '#1a1a1a',
+            font: {{ color: '#fff' }},
+            margin: {{ t: 40, r: 20, b: 40, l: 20 }},
+            title: '3D Trajectory',
+            scene: {{
+                xaxis: {{ title: 'X (m)', gridcolor: '#333', backgroundcolor: '#1a1a1a' }},
+                yaxis: {{ title: 'Y (m)', gridcolor: '#333', backgroundcolor: '#1a1a1a' }},
+                zaxis: {{ title: 'Z (m)', gridcolor: '#333', backgroundcolor: '#1a1a1a' }},
+                bgcolor: '#1a1a1a',
+                aspectmode: 'data'
+            }},
+            legend: {{ x: 0.02, y: 0.98 }}
+        }});
     </script>
 </body>
 </html>
