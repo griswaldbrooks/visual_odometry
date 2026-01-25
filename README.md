@@ -114,6 +114,8 @@ Features:
 - Coverage bar showing where images exist
 - Keyboard controls: Arrow keys, Home/End
 
+![Trajectory Visualizer](docs/groundtruth_visualizer1.png)
+
 ### Compare Two Trajectories
 
 Compare estimated vs ground truth with time-matched error metrics:
