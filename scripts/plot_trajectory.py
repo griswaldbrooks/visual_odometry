@@ -11,7 +11,6 @@ Usage:
 """
 
 import argparse
-import base64
 import webbrowser
 import tempfile
 from pathlib import Path
@@ -22,29 +21,62 @@ sys.path.insert(0, str(Path(__file__).parent))
 from trajectory_utils import load_trajectory
 
 
-def load_images_as_base64(image_dir: Path, max_images: int = None) -> list[str]:
-    """Load images from directory and encode as base64 data URIs."""
+def get_image_paths_with_timestamps(image_dir: Path) -> list[tuple[float, str]]:
+    """Get image paths with their timestamps.
+
+    For TUM format, timestamps are extracted from filenames (e.g., 1305031102.175304.png).
+    For other formats, assumes sequential ordering and returns index as timestamp.
+
+    Returns list of (timestamp, absolute_path) tuples, sorted by timestamp.
+    """
     image_extensions = {'.png', '.jpg', '.jpeg'}
     image_paths = sorted([
         p for p in image_dir.iterdir()
         if p.suffix.lower() in image_extensions
     ])
 
-    if max_images:
-        image_paths = image_paths[:max_images]
+    result = []
+    for i, path in enumerate(image_paths):
+        # Try to parse TUM-style timestamp from filename
+        stem = path.stem
+        try:
+            timestamp = float(stem)
+        except ValueError:
+            # Not a timestamp filename, use index
+            timestamp = float(i)
 
-    images_b64 = []
-    for path in image_paths:
-        with open(path, 'rb') as f:
-            data = base64.b64encode(f.read()).decode('utf-8')
-            ext = path.suffix.lower()
-            mime = 'image/jpeg' if ext in ['.jpg', '.jpeg'] else 'image/png'
-            images_b64.append(f"data:{mime};base64,{data}")
+        result.append((timestamp, str(path.absolute())))
 
-    return images_b64
+    return sorted(result, key=lambda x: x[0])
 
 
-def create_plot_html(timestamps, positions, title: str, images_b64: list[str] = None) -> str:
+def match_images_to_timestamps(
+    trajectory_timestamps: list[float],
+    image_data: list[tuple[float, str]],
+) -> list[str]:
+    """Match trajectory timestamps to nearest images.
+
+    For each trajectory timestamp, finds the image with the closest timestamp.
+    Returns list of image paths aligned with trajectory timestamps.
+    """
+    import numpy as np
+
+    if not image_data:
+        return []
+
+    image_timestamps = np.array([t for t, _ in image_data])
+    image_paths = [p for _, p in image_data]
+
+    matched_paths = []
+    for t in trajectory_timestamps:
+        # Find closest image timestamp
+        idx = np.argmin(np.abs(image_timestamps - t))
+        matched_paths.append(image_paths[idx])
+
+    return matched_paths
+
+
+def create_plot_html(timestamps, positions, title: str, image_paths: list[str] = None) -> str:
     """Create HTML with plotly X/Y/Z vs time plots and 3D view with synced slider."""
 
     t = timestamps.tolist()
@@ -52,8 +84,13 @@ def create_plot_html(timestamps, positions, title: str, images_b64: list[str] = 
     y = positions[:, 1].tolist()
     z = positions[:, 2].tolist()
 
-    has_images = images_b64 and len(images_b64) > 0
-    images_json = str(images_b64) if has_images else "[]"
+    has_images = image_paths and len(image_paths) > 0
+    # Convert to file:// URLs for local viewing
+    if has_images:
+        image_urls = [f"file://{p}" for p in image_paths]
+        images_json = str(image_urls)
+    else:
+        images_json = "[]"
 
     # Adjust layout based on whether we have images
     if has_images:
@@ -344,19 +381,23 @@ def main() -> None:
     print(f"  Duration: {interp.duration:.2f}s")
     print(f"  Time range: [{interp.start_time:.2f}, {interp.end_time:.2f}]")
 
-    # Load images if provided
-    images_b64 = None
+    # Load and match images if provided
+    image_paths = None
     if args.images and args.images.exists():
         print(f"Loading images from {args.images}")
-        images_b64 = load_images_as_base64(args.images, max_images=len(interp))
-        print(f"  Loaded {len(images_b64)} images")
+        image_data = get_image_paths_with_timestamps(args.images)
+        print(f"  Found {len(image_data)} images")
+
+        # Match images to trajectory timestamps
+        image_paths = match_images_to_timestamps(interp.timestamps.tolist(), image_data)
+        print(f"  Matched to {len(set(image_paths))} unique images (by timestamp)")
 
     # Make timestamps relative to first sample
     timestamps = interp.timestamps - interp.timestamps[0]
 
     # Create plot
     title = str(args.trajectory)
-    html = create_plot_html(timestamps, interp.positions, title, images_b64)
+    html = create_plot_html(timestamps, interp.positions, title, image_paths)
 
     # Write to temp file and open
     with tempfile.NamedTemporaryFile(mode="w", suffix=".html", delete=False) as f:
