@@ -67,6 +67,291 @@ JSON string → File
 
 ---
 
+## State Estimation Layer
+
+### Overview
+
+State estimation refines noisy motion estimates from visual odometry to produce more accurate and consistent trajectory estimates. Raw frame-to-frame motion estimates suffer from:
+
+- **Measurement noise** - Feature matching and essential matrix decomposition introduce errors
+- **Drift accumulation** - Small errors compound over time without correction
+- **Outlier sensitivity** - Incorrect matches can cause large pose jumps
+
+The state estimation layer sits between motion estimation and trajectory output, processing `MotionEstimate` inputs and producing refined `StateEstimate` outputs with associated uncertainty.
+
+**Available approaches:**
+
+| Approach | Description | Use Case |
+|----------|-------------|----------|
+| **Pass-through** | No filtering, direct accumulation | Fast prototyping, ground truth testing |
+| **Kalman filter** | Recursive Bayesian estimation | Real-time, constant velocity assumption |
+| **Graph optimization** | Batch optimization over pose graph | Highest accuracy, handles loop closures |
+
+---
+
+### Sliding Window Pose Graph Optimization
+
+Sliding window pose graph optimization provides accurate state estimation while maintaining bounded computational cost through a moving window of recent poses.
+
+#### Graph Structure
+
+The pose graph consists of **nodes** and **edges**:
+
+```text
+Nodes (Poses)
+┌─────────────────────────────────────────────────────────────────┐
+│                                                                 │
+│   T₀ ──── T₁ ──── T₂ ──── T₃ ──── T₄ ──── T₅ ──── T₆          │
+│   (oldest)                                        (newest)      │
+│                                                                 │
+│   Each node Tᵢ = (Rᵢ, tᵢ) ∈ SE(3)                              │
+│   - Rᵢ: 3×3 rotation matrix                                     │
+│   - tᵢ: 3×1 translation vector                                  │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+
+Edges (Constraints)
+┌─────────────────────────────────────────────────────────────────┐
+│                                                                 │
+│   Odometry edges (adjacent in time):                            │
+│                                                                 │
+│   T₀ ─T₀₁→ T₁ ─T₁₂→ T₂ ─T₂₃→ T₃ ─T₃₄→ T₄ ─T₄₅→ T₅ ─T₅₆→ T₆    │
+│                                                                 │
+│   Loop closure edges (non-adjacent):                            │
+│                                                                 │
+│   T₁ ─────────────── T₁₄ ────────────────→ T₄                   │
+│                                                                 │
+│   Each edge Tᵢⱼ represents measured relative transform          │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Node representation:**
+
+- Camera pose at discrete time step k: `T_k = (R_k, t_k)`
+- Rotation R ∈ SO(3), translation t ∈ ℝ³
+- Combined as rigid transform T ∈ SE(3)
+
+**Edge types:**
+
+- **Odometry edges:** Relative transform `T_{i,i+1}` from motion estimator between consecutive frames
+- **Loop closure edges:** Relative transform `T_{i,j}` from place recognition between non-adjacent frames
+
+#### Cost Function
+
+The optimization minimizes the sum of squared errors over all constraints:
+
+```text
+            ___
+           \
+E(T) =      >    ρ( || e_{i,j} ||²_{Ω_{i,j}} )
+           /___
+          (i,j) ∈ edges
+```
+
+**Error term for edge (i,j):**
+
+```text
+e_{i,j} = log( T_i⁻¹ · T_{i,j}⁻¹ · T_j )
+
+where:
+  - T_i, T_j are optimized poses
+  - T_{i,j} is the measured relative transform
+  - log(·) maps SE(3) to se(3) (6-vector: 3 rotation + 3 translation)
+```
+
+**Mahalanobis distance with information matrix:**
+
+```text
+|| e ||²_Ω = e^T · Ω · e
+
+where Ω = Σ⁻¹ (inverse covariance from measurement uncertainty)
+```
+
+**Robust cost functions** for outlier handling:
+
+| Function | Formula | Behavior |
+|----------|---------|----------|
+| **Squared** | `ρ(s) = s` | No outlier rejection |
+| **Huber** | `ρ(s) = s if s < δ², else 2δ√s - δ²` | Linear for large errors |
+| **Cauchy** | `ρ(s) = δ² log(1 + s/δ²)` | Logarithmic for large errors |
+
+#### Sliding Window
+
+To maintain bounded computational cost, only the N most recent poses are optimized:
+
+```text
+Full trajectory:  T₀ ─ T₁ ─ T₂ ─ T₃ ─ T₄ ─ T₅ ─ T₆ ─ T₇ ─ T₈
+                  ├───────────────────┤
+                  marginalized (fixed)
+
+Sliding window:                       ├─────────────────────┤
+                                      T₅ ─ T₆ ─ T₇ ─ T₈
+                                      (N=4 poses optimized)
+```
+
+**Window management:**
+
+- Keep N most recent poses (configurable, typical N=10-20)
+- When window reaches max size, marginalize oldest pose
+- Marginalized poses become fixed prior constraints
+- Computational cost: O(N²) per optimization iteration
+
+**Marginalization:**
+
+- Convert oldest pose to fixed prior constraint
+- Preserves information about marginalized poses
+- Prevents unbounded growth of optimization problem
+
+#### Consistency Constraints
+
+For trajectory consistency, composed transforms should satisfy:
+
+```text
+T_{i,j} · T_{j,k} ≈ T_{i,k}
+
+Example with three poses:
+  T₀ ─T₀₁→ T₁ ─T₁₂→ T₂
+   └────── T₀₂ ──────┘
+
+Constraint: T₀₁ · T₁₂ ≈ T₀₂
+```
+
+This property is enforced implicitly through the optimization when loop closure edges create cycles in the graph.
+
+---
+
+### Interface Design
+
+The state estimation layer follows the existing concept + variant pattern used elsewhere in the codebase (see `matcher_concept.hpp` and `image_matcher.hpp`).
+
+**Concept definition:**
+
+```cpp
+// state_estimator_concept.hpp
+
+template <typename T>
+concept state_estimator_like = requires(T estimator,
+                                        MotionEstimate const& motion,
+                                        std::optional<LoopClosure> const& loop) {
+    { estimator.update(motion) } -> std::same_as<StateEstimate>;
+    { estimator.update(motion, loop) } -> std::same_as<StateEstimate>;
+    { estimator.get_window() } -> std::convertible_to<std::span<Pose const>>;
+    { estimator.reset() } -> std::same_as<void>;
+};
+```
+
+**Data structures:**
+
+```cpp
+// state_estimator_types.hpp
+
+struct StateEstimate {
+    Pose pose;                    // Refined camera pose
+    Eigen::Matrix6d covariance;   // 6×6 uncertainty (rotation + translation)
+    bool valid;                   // Estimation succeeded
+    size_t window_size;           // Current poses in window
+};
+
+struct LoopClosure {
+    size_t from_idx;              // Index of earlier pose
+    size_t to_idx;                // Index of later pose
+    Pose relative_transform;      // Measured T_{from,to}
+    Eigen::Matrix6d information;  // Measurement precision
+};
+```
+
+**Configuration structs:**
+
+```cpp
+// Passthrough - no filtering
+struct PassthroughEstimatorConfig {};
+
+// Extended Kalman Filter
+struct EKFEstimatorConfig {
+    Eigen::Matrix6d process_noise = Eigen::Matrix6d::Identity() * 0.01;
+    Eigen::Matrix6d measurement_noise = Eigen::Matrix6d::Identity() * 0.1;
+};
+
+// Sliding window pose graph
+struct GraphEstimatorConfig {
+    size_t window_size = 15;              // Number of poses in window
+    size_t max_iterations = 10;           // Optimizer iterations per update
+    double convergence_threshold = 1e-6;  // Stop when delta < threshold
+    RobustCostType cost_function = RobustCostType::Huber;
+    double huber_delta = 1.0;             // Huber/Cauchy parameter
+};
+```
+
+**Variant type:**
+
+```cpp
+// state_estimator.hpp
+
+using StateEstimator = std::variant<
+    PassthroughEstimator,
+    EKFEstimator,
+    GraphEstimator
+>;
+
+// Factory function
+[[nodiscard]] auto create_state_estimator(StateEstimatorConfig const& config)
+    -> StateEstimator;
+```
+
+---
+
+### Integration
+
+The state estimation layer fits into the pipeline after motion estimation and before trajectory output:
+
+```text
+┌─────────────────────────────────────────────────────────────────┐
+│ PROCESSING LOOP (with state estimation)                         │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│   loader.load_image_pair(i)                                     │
+│            ↓                                                    │
+│   matcher.match_images(img1, img2)                              │
+│            ↓                                                    │
+│   motion_estimator.estimate(points1, points2)                   │
+│            ↓                                                    │
+│   MotionEstimate {R, t, inliers, valid}                         │
+│            ↓                                                    │
+│   state_estimator.update(motion_estimate)  ←─── NEW LAYER       │
+│            ↓                                                    │
+│   StateEstimate {pose, covariance, valid}                       │
+│            ↓                                                    │
+│   trajectory.add_state(state_estimate)     ←─── Updated method  │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Input:** `MotionEstimate` from motion estimator
+
+- Relative transform (R, t) between consecutive frames
+- Inlier count for uncertainty estimation
+- Valid flag indicating successful estimation
+
+**Output:** `StateEstimate` with refined pose
+
+- Optimized absolute pose in world frame
+- 6×6 covariance matrix for downstream use
+- Current window size for monitoring
+
+**Loop closure integration:**
+
+```cpp
+// When place recognition detects revisited location
+if (auto loop = place_recognizer.detect(current_frame)) {
+    state_estimate = state_estimator.update(motion_estimate, loop);
+} else {
+    state_estimate = state_estimator.update(motion_estimate);
+}
+```
+
+---
+
 ## Design Violations
 
 ### VIOLATION 1: FeatureDetector - Should Be Function

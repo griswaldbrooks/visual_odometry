@@ -26,15 +26,15 @@ namespace vo = visual_odometry;
 // Helper to convert tl::expected errors to Python exceptions
 template <typename T>
 T unwrap_expected(tl::expected<T, std::string>&& result) {
-    if (!result) {
+    if (!result.has_value()) {
         throw std::runtime_error(result.error());
     }
-    return std::move(*result);
+    return std::move(result.value());
 }
 
 // Specialization for void
 inline void unwrap_expected_void(tl::expected<void, std::string>&& result) {
-    if (!result) {
+    if (!result.has_value()) {
         throw std::runtime_error(result.error());
     }
 }

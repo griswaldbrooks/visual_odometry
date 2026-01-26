@@ -30,8 +30,7 @@ auto image_loader::create(std::string_view image_directory)
     for (auto const& entry : fs::directory_iterator(image_directory)) {
         if (entry.is_regular_file()) {
             auto ext = entry.path().extension().string();
-            std::transform(ext.begin(), ext.end(), ext.begin(),
-                           ::tolower);  // NOLINT(modernize-use-ranges)
+            std::ranges::transform(ext, ext.begin(), ::tolower);
             if (ext == ".png" || ext == ".jpg" || ext == ".jpeg") {
                 image_paths.push_back(entry.path().string());
             }

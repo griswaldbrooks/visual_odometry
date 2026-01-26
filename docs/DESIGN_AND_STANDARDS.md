@@ -22,11 +22,13 @@ This document describes the implementation details, coding patterns, and design 
 ### 1. Functions Over Classes
 
 Pure functions are preferred for stateless operations. Classes are used only when:
+
 - State must persist between method calls
 - Resource management requires RAII
 - Iteration requires mutable state
 
 **Example:**
+
 ```cpp
 // Stateless operation → Pure function
 [[nodiscard]] auto detect_features(
@@ -43,6 +45,7 @@ class onnx_session {
 ### 2. State at System Boundaries
 
 Stateful components belong at system edges, not in core algorithms:
+
 - **I/O boundaries:** `image_loader` (file iteration)
 - **Resource boundaries:** `onnx_session` (inference engine)
 - **Accumulation boundaries:** `Trajectory` (pose accumulation)
@@ -52,6 +55,7 @@ Core algorithms (detection, matching, motion estimation) are pure functions.
 **Justification Examples:**
 
 **Trajectory (Pose Accumulation):**
+
 ```cpp
 class Trajectory {
 public:
@@ -66,11 +70,13 @@ private:
     std::vector<pose> poses_;
 };
 ```
+
 - State persists across calls (accumulated poses)
 - Each `add_motion()` depends on previous state
 - This IS a system boundary (accumulation edge)
 
 **Image Loader (I/O Boundary):**
+
 ```cpp
 class image_loader {
 public:
@@ -86,11 +92,13 @@ private:
     std::vector<std::filesystem::path> image_paths_;
 };
 ```
+
 - Manages I/O state (directory contents)
 - Iteration requires mutable position
 - System boundary component
 
 **ONNX Session (Resource Management):**
+
 ```cpp
 class onnx_session {
 public:
@@ -109,6 +117,7 @@ private:
     Ort::MemoryInfo memory_info_;
 };
 ```
+
 - Manages ONNX Runtime lifetime (RAII)
 - Inference engine is stateful
 - Move-only ensures single ownership
@@ -148,6 +157,7 @@ if (motion.valid) {
 ```
 
 **Benefits:**
+
 - Functions that can fail return `tl::expected` (e.g., I/O operations)
 - Pure computation functions return structs with validity flags
 - Explicit error handling at call sites
@@ -157,6 +167,7 @@ if (motion.valid) {
 ### 5. Zero-Cost Abstractions
 
 Use modern C++ features to achieve abstraction without runtime overhead:
+
 - Concepts for compile-time interface checking
 - `std::variant` for polymorphism without vtables
 - Templates for generic code
@@ -183,6 +194,7 @@ static_assert(matcher_like<lightglue_matcher>);
 ```
 
 **Benefits:**
+
 - Duck typing in C++ (structural, not nominal)
 - Better compiler error messages than SFINAE
 - Compile-time verification
@@ -203,12 +215,14 @@ auto name = std::visit(
 ```
 
 **Benefits:**
+
 - Zero runtime overhead (no vtable lookup)
 - Value semantics (no heap allocation required)
 - Exhaustive matching (compiler error if case missing)
 - Better cache locality
 
 **Trade-offs:**
+
 - Closed set of types (can't add new types at runtime)
 - All types in variant must be known at compile time
 - Perfect for our use case (fixed set of matchers)
@@ -250,6 +264,7 @@ using image_matcher = std::variant<orb_matcher, lightglue_matcher>;
 ```
 
 **Usage:**
+
 ```cpp
 // Create matcher
 auto matcher = create_image_matcher("lightglue", model_path);
@@ -276,6 +291,7 @@ auto match_features(
 ```
 
 **Benefits:**
+
 - Safety: size is always known
 - Works with arrays, vectors, or any contiguous container
 - Zero overhead (pointer + size)
@@ -293,6 +309,7 @@ Mark all functions returning values with `[[nodiscard]]`:
 ```
 
 **Benefits:**
+
 - Compiler warning if return value ignored
 - Prevents accidental discard of `tl::expected` errors
 - Documents that function has no side effects
@@ -315,6 +332,7 @@ public:
 ```
 
 **Benefits:**
+
 - Enforces single ownership
 - Prevents accidental copies of heavy resources
 - Clear transfer of ownership semantics
@@ -328,6 +346,7 @@ public:
 **File:** `src/python_bindings.cpp` (321 lines)
 
 The codebase provides comprehensive Python bindings via nanobind, offering:
+
 - Zero-overhead interop (no copies for simple types)
 - Automatic error conversion (`tl::expected` → Python exceptions)
 - Full numpy integration via cvnp_nano
@@ -337,6 +356,7 @@ The codebase provides comprehensive Python bindings via nanobind, offering:
 ### Exposed API
 
 **Core Types:**
+
 ```python
 # Data structures
 class CameraIntrinsics:
@@ -365,6 +385,7 @@ class Pose:
 ```
 
 **Matchers:**
+
 ```python
 class orb_matcher:
     def __init__(self): ...
@@ -378,6 +399,7 @@ class lightglue_matcher:
 ```
 
 **Processing:**
+
 ```python
 class image_loader:
     @staticmethod
@@ -408,6 +430,7 @@ class Trajectory:
 ### Example Python Usage
 
 **Basic VO Pipeline:**
+
 ```python
 import visual_odometry as vo
 import numpy as np
@@ -433,6 +456,7 @@ with open("trajectory.json", "w") as f:
 ```
 
 **Real-Time Visualization (Proposed):**
+
 ```python
 import visual_odometry as vo
 import viser
@@ -465,12 +489,14 @@ for img1, img2 in loader:
 ### cv::Mat ↔ NumPy Conversion
 
 **Automatic via cvnp_nano:**
+
 - C++ `cv::Mat` automatically becomes `np.ndarray` in Python
 - Python `np.ndarray` automatically becomes `cv::Mat` in C++
 - Zero-copy for compatible types
 - Proper memory management (reference counting)
 
 **Supported conversions:**
+
 - Grayscale images (CV_8UC1) ↔ uint8 array
 - Color images (CV_8UC3) ↔ uint8 array (H, W, 3)
 - Float images (CV_32FC1) ↔ float32 array
@@ -479,6 +505,7 @@ for img1, img2 in loader:
 ### Error Handling
 
 **C++ `tl::expected` → Python exceptions:**
+
 ```cpp
 // C++ code - for functions returning tl::expected
 auto loader = image_loader::create(directory);
@@ -566,12 +593,14 @@ auto create_image_matcher(
 **4. Implement preprocessing/postprocessing:**
 
 Most learned matchers need custom preprocessing:
+
 - Resize to expected dimensions
 - Normalize pixel values
 - Convert to RGB/grayscale as needed
 - Create ONNX input tensors
 
 **Example pattern:**
+
 ```cpp
 auto superglue_matcher::match_images(
     cv::Mat const& img1,
@@ -690,15 +719,18 @@ nb::class_<Trajectory>(m, "Trajectory")
 ### CMake Configuration
 
 **Minimum requirements:**
+
 - CMake 3.25+
 - C++20 compiler (GCC 11+, Clang 14+, MSVC 19.29+)
 
 **Required dependencies:**
+
 - OpenCV 4.x
 - Eigen3
 - yaml-cpp
 
 **Optional dependencies:**
+
 - ONNX Runtime (for LightGlue, auto-detected from `CONDA_PREFIX` environment)
 - Python 3.8+ (for bindings, controlled by `ENABLE_PYTHON_BINDINGS`)
 - nanobind (fetched automatically if Python enabled)
@@ -752,6 +784,7 @@ This allows building minimal configurations without heavy dependencies. ONNX Run
 **Principle:** Functions return by value, classes manage owned resources.
 
 **Examples:**
+
 ```cpp
 // Functions return by value (move semantics avoid copies)
 auto detection_result detect_features(...) -> detection_result;
@@ -791,7 +824,7 @@ auto const match_result = matcher.match_images(...);
 
 **ONNX Runtime Integration:**
 
-```
+```text
 ┌─────────────────────────────────────────┐
 │ lightglue_matcher                       │
 │  ├─ Contains: unique_ptr<onnx_session>  │
@@ -814,11 +847,13 @@ auto const match_result = matcher.match_images(...);
 ```
 
 **Workflow:**
+
 1. **Initialization:** `lightglue_matcher` constructor loads ONNX model (one-time cost ~100-500ms)
 2. **Inference:** `match_images()` calls `onnx_session.run()` (per-frame cost ~20-50ms)
 3. **Cleanup:** Automatic when matcher goes out of scope
 
 **Benefits:**
+
 - Model loaded once, reused for all frames
 - No subprocess overhead
 - No file I/O per frame
@@ -828,16 +863,19 @@ auto const match_result = matcher.match_images(...);
 ### Resource Management Best Practices
 
 **Smart Pointers:**
+
 - Use `std::unique_ptr` for exclusive ownership
 - Use `std::shared_ptr` for shared ownership (rarely needed)
 - Never use raw owning pointers
 
 **Move Semantics:**
+
 - Return by value and rely on move semantics
 - Use move-only types for unique resources
 - Default move operations when appropriate
 
 **RAII Wrappers:**
+
 - Wrap external resources (ONNX Runtime, file handles, etc.)
 - Ensure cleanup in destructor
 - Use factory functions returning `tl::expected` for fallible construction

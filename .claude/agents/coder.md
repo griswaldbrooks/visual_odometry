@@ -76,7 +76,21 @@ concept image_loader_like = requires(T l) { ... };
 
 ## Error Handling with tl::expected
 
-**Always use `tl::expected<T, std::string>` for fallible operations:**
+**Always use `tl::expected<T, std::string>` for fallible operations.**
+
+**IMPORTANT: Use `.has_value()` and `.value()` instead of `*` operator:**
+
+```cpp
+// CORRECT - explicit method calls
+if (result.has_value()) {
+    auto const& data = result.value();
+}
+
+// WRONG - never use * operator
+if (result) {
+    auto const& data = *result;  // DON'T do this
+}
+```
 
 ```cpp
 #include <tl/expected.hpp>

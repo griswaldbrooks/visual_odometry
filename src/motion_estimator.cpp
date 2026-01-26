@@ -3,6 +3,11 @@
 #include <string>
 #include <string_view>
 
+// NOLINTBEGIN(misc-include-cleaner)
+// Eigen headers must be included before opencv2/core/eigen.hpp
+#include <Eigen/Core>
+#include <Eigen/Geometry>
+// NOLINTEND(misc-include-cleaner)
 #include <opencv2/calib3d.hpp>
 #include <opencv2/core/eigen.hpp>
 #include <opencv2/core/hal/interface.h>
@@ -50,14 +55,12 @@ auto estimate_motion(std::span<cv::Point2f const> points1, std::span<cv::Point2f
 
     // Convert spans to cv::Mat for OpenCV functions (copy data)
     cv::Mat const pts1_mat(static_cast<int>(points1.size()), 1, CV_32FC2);
-    std::ranges::copy(points1,
-                      reinterpret_cast<cv::Point2f*>(
-                          pts1_mat.data));  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+    std::ranges::copy(points1, reinterpret_cast<cv::Point2f*>(pts1_mat.data));
 
     cv::Mat const pts2_mat(static_cast<int>(points2.size()), 1, CV_32FC2);
-    std::ranges::copy(points2,
-                      reinterpret_cast<cv::Point2f*>(
-                          pts2_mat.data));  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+    std::ranges::copy(points2, reinterpret_cast<cv::Point2f*>(pts2_mat.data));
 
     cv::Mat const camera_matrix = intrinsics.camera_matrix();
     cv::Mat mask;

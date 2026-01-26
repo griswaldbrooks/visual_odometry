@@ -224,8 +224,10 @@ for (const auto& match : matches)
 
 ### tl::expected Error Handling
 
+**Always use `.has_value()` and `.value()` - never use `*` operator:**
+
 ```cpp
-// GOOD - Test both success and error paths
+// GOOD - Test both success and error paths using explicit methods
 TEST(LoadImage, ValidPathReturnsImage) {
     // GIVEN a valid image path
     auto const path = std::filesystem::path("test.png");
@@ -249,6 +251,10 @@ TEST(LoadImage, InvalidPathReturnsError) {
     ASSERT_FALSE(result.has_value());
     EXPECT_THAT(result.error(), HasSubstr("Failed to load"));
 }
+
+// BAD - using * operator
+ASSERT_TRUE(result);           // Don't use implicit bool
+auto const& data = *result;    // Don't use * operator
 ```
 
 ### Parameterization to Reduce Duplication

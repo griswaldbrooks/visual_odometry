@@ -75,7 +75,7 @@ class motion_config { ... };
 ### tl::expected Error Handling
 
 ```cpp
-// CORRECT
+// CORRECT - use explicit methods
 [[nodiscard]] auto load_image(std::filesystem::path const& path)
     -> tl::expected<cv::Mat, std::string>
 {
@@ -83,6 +83,16 @@ class motion_config { ... };
         return tl::unexpected("Failed to load: " + path.string());
     }
     return image;
+}
+
+// CORRECT - use .has_value() and .value()
+if (result.has_value()) {
+    auto const& data = result.value();
+}
+
+// WRONG - Flag * operator as REQUIRED CHANGE
+if (result) {
+    auto const& data = *result;  // DON'T use * with tl::expected
 }
 
 // WRONG - Flag exceptions as REQUIRED CHANGE
@@ -209,6 +219,8 @@ EXPECT_FLOAT_EQ(points[0].x, 50.0f);  // No size check!
 | `class Foo` | Using class | `struct foo` |
 | `concept Matcher` | Bad concept name | `concept matcher_like` |
 | `throw std::runtime_error` | Exceptions | `tl::unexpected(...)` |
+| `*result` with tl::expected | Using * operator | `result.value()` |
+| `if (result)` with tl::expected | Implicit bool | `if (result.has_value())` |
 | `int foo()` | Missing attributes | `[[nodiscard]] auto foo() -> int` |
 | `static const` | Not constexpr | `constexpr` |
 | `const string&` | Owning reference | `string_view` |

@@ -88,6 +88,12 @@ struct feature_matcher { ... };  // NEVER: class feature_matcher
 auto result = load_image(path)
     .and_then([](cv::Mat const& img) { return detect_features(img); })
     .transform([](auto const& features) { return features.size(); });
+
+// ALWAYS use .has_value() and .value() - never use * operator
+if (result.has_value()) {
+    auto const& data = result.value();  // CORRECT
+}
+// WRONG: auto const& data = *result;
 ```
 
 ### Testing

@@ -39,8 +39,9 @@ void print_usage(std::string_view program) {
               << "  --help             Show this help message\n";
 }
 
-auto parse_args(int argc, char* argv[]) -> std::optional<
-    command_args> {  // NOLINT(cppcoreguidelines-avoid-c-arrays,modernize-avoid-c-arrays)
+auto parse_args(int argc,
+                char* argv[]  // NOLINT(cppcoreguidelines-avoid-c-arrays,modernize-avoid-c-arrays)
+                ) -> std::optional<command_args> {
     command_args args;
 
     for (int i = 1; i < argc; ++i) {
@@ -94,21 +95,21 @@ auto main(int argc, char* argv[]) -> int {  // NOLINT(bugprone-exception-escape)
 
     // Load camera intrinsics
     auto intrinsics_result = visual_odometry::camera_intrinsics::load_from_yaml(args->camera_yaml);
-    if (!intrinsics_result) {
+    if (!intrinsics_result.has_value()) {
         std::cerr << "Error: " << intrinsics_result.error() << "\n";
         return 1;
     }
-    auto const& intrinsics = *intrinsics_result;
+    auto const& intrinsics = intrinsics_result.value();
     std::cout << "Loaded camera intrinsics (fx=" << intrinsics.fx << ", fy=" << intrinsics.fy
               << ")\n";
 
     // Initialize image loader
     auto loader_result = visual_odometry::image_loader::create(args->image_dir);
-    if (!loader_result) {
+    if (!loader_result.has_value()) {
         std::cerr << "Error: " << loader_result.error() << "\n";
         return 1;
     }
-    auto loader = std::move(*loader_result);
+    auto loader = std::move(loader_result.value());
     std::cout << "Found " << loader.size() << " images\n";
 
     if (loader.size() < 2) {
@@ -144,12 +145,12 @@ auto main(int argc, char* argv[]) -> int {  // NOLINT(bugprone-exception-escape)
     int valid_motions = 0;
     for (size_t i = 0; i < max_pairs; ++i) {
         auto pair_result = loader.load_image_pair(i);
-        if (!pair_result) {
+        if (!pair_result.has_value()) {
             std::cerr << "Warning: Failed to load pair " << i << ": " << pair_result.error()
                       << "\n";
             continue;
         }
-        auto const& [img1, img2] = *pair_result;
+        auto const& [img1, img2] = pair_result.value();
 
         // Match features between images
         auto const match_result = std::visit(

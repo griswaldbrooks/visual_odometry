@@ -150,6 +150,29 @@ auto process(T const& value) {
 
 **Use `tl::expected<T, E>` for all fallible operations:**
 
+### Value Access Convention (Mandatory)
+
+**Always use `.has_value()` and `.value()` methods instead of `*` operator:**
+
+```cpp
+// CORRECT - explicit method calls
+if (result.has_value()) {
+    auto const& data = result.value();
+}
+
+// CORRECT - with move
+auto data = std::move(result.value());
+
+// WRONG - never use * operator for tl::expected
+if (result) {
+    auto const& data = *result;  // DON'T do this
+}
+```
+
+**Rationale:** Explicit methods make the intent clearer and are more consistent with the overall coding style.
+
+### Basic Usage
+
 ```cpp
 #include <tl/expected.hpp>
 
