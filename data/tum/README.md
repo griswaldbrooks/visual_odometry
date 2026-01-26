@@ -36,7 +36,8 @@ Small dataset sequences for quick visual odometry testing.
 ## Directory Structure
 
 After download:
-```
+
+```text
 data/tum/rgbd_dataset_freiburg1_xyz/
 ├── rgb/                    # Color images (use these)
 │   ├── 1305031102.175304.png
@@ -52,6 +53,7 @@ data/tum/rgbd_dataset_freiburg1_xyz/
 ## Camera Intrinsics
 
 Freiburg1 sequences use `data/tum_camera.yaml`:
+
 - fx: 517.3, fy: 516.5
 - cx: 318.6, cy: 255.3
 - Resolution: 640x480
@@ -59,7 +61,8 @@ Freiburg1 sequences use `data/tum_camera.yaml`:
 ## Ground Truth
 
 The `groundtruth.txt` file contains poses in TUM format:
-```
+
+```text
 timestamp tx ty tz qx qy qz qw
 ```
 

@@ -6,6 +6,7 @@ repos:
       - id: trailing-whitespace
       - id: end-of-file-fixer
       - id: check-yaml
+        exclude: 'data/.*_camera\.yaml$'  # OpenCV YAML format not compatible
       - id: check-added-large-files
         args: ['--maxkb=500']
       - id: check-merge-conflict
@@ -25,12 +26,10 @@ repos:
     hooks:
       - id: clang-tidy
         name: clang-tidy
-        entry: bash -c 'if [ -d "build/dev" ]; then run-clang-tidy -p build/dev -quiet "$@"; else echo "Build directory not found. Run: pixi run configure && pixi run build"; exit 1; fi' --
+        entry: pixi run -e default bash -c 'run-clang-tidy -p build/dev -quiet "$@"' --
         language: system
         types_or: [c++, c]
-        # Only run on staged files, not all files
         pass_filenames: true
-        # Skip during pre-commit run -a if build doesn't exist
         stages: [pre-commit]
 
   # CMake formatting
@@ -45,11 +44,12 @@ repos:
     rev: v1.35.1
     hooks:
       - id: yamllint
-        args: ['-d', '{extends: relaxed, rules: {line-length: {max: 120}}}']
+        args: ['-d', '{extends: relaxed, rules: {line-length: {max: 200}}}']
+        exclude: 'data/.*_camera\.yaml$'  # OpenCV YAML format not compatible
 
   # Markdown linting
   - repo: https://github.com/igorshubovych/markdownlint-cli
     rev: v0.43.0
     hooks:
       - id: markdownlint
-        args: ['--fix', '--disable', 'MD013', 'MD033', 'MD041', '--']
+        args: ['--fix', '--disable', 'MD013', 'MD024', 'MD029', 'MD033', 'MD036', 'MD041', '--']

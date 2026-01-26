@@ -55,6 +55,7 @@ Small sequences for quick testing:
 ### KITTI Dataset
 
 For KITTI, download manually from [cvlibs.net](https://www.cvlibs.net/datasets/kitti/eval_odometry.php):
+
 - Download "odometry data set (grayscale)"
 - Extract to `data/kitti/sequences/00/`
 
@@ -108,6 +109,7 @@ pixi run -e viz python scripts/plot_trajectory.py \
 ```
 
 Features:
+
 - Time scrubber synced across all views
 - 3D trajectory with start/end markers
 - Image display (when `--images` provided)
@@ -171,6 +173,7 @@ pre-commit run -a      # All pre-commit hooks
 ### Code Style
 
 This project follows strict C++20 conventions:
+
 - **East const**: `int const x` not `const int x`
 - **snake_case**: All identifiers including types
 - **struct over class**: Always use `struct`
@@ -181,7 +184,7 @@ See `.claude/claude.md` for complete style guide.
 
 ## Project Structure
 
-```
+```text
 visual_odometry/
 ├── include/visual_odometry/  # C++ headers
 ├── src/                      # C++ implementation

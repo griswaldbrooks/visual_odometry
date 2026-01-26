@@ -66,6 +66,7 @@ pixi run coverage
 - **Always run these first** after code changes
 
 Test files:
+
 - `test_image_loader.cpp` - Image loading and pair iteration
 - `test_feature_detector.cpp` - ORB feature detection
 - `test_feature_matcher.cpp` - Feature matching with ratio test
@@ -98,7 +99,7 @@ When code is modified, determine which tests to run:
 
 Provide test results in this structured format:
 
-```
+```markdown
 ## Test Results
 
 ### Summary

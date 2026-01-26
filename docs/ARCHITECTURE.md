@@ -1,416 +1,435 @@
-# Visual Odometry Architecture
+# Visual Odometry Architecture Analysis
 
-**Last Updated:** 2026-01-25
+## Design Principles
 
-This document describes the high-level architecture and algorithmic pipeline of the visual odometry system. For implementation details, coding patterns, and design standards, see [DESIGN_AND_STANDARDS.md](DESIGN_AND_STANDARDS.md).
-
----
-
-## Table of Contents
-
-1. [System Overview](#system-overview)
-2. [Core Components](#core-components)
-3. [Algorithmic Pipeline](#algorithmic-pipeline)
-4. [Data Flow](#data-flow)
-5. [Available Matchers](#available-matchers)
-6. [Future Directions](#future-directions)
+1. **Functions over classes** - Everything should be a function (or struct for data) unless it needs state between calls
+2. **Classes only for state** - Only use classes when state must persist between method calls
+3. **Push state to edges** - Stateful components should be at system boundaries, not in core logic
+4. **Methods call functions** - Class methods should be thin wrappers calling pure functions
+5. **I/O at edges** - File reading/writing should happen in main, with loaded data passed to functions
 
 ---
 
-## System Overview
+## Current Data Flow
 
-### High-Level Pipeline
-
-The visual odometry system processes sequential images through a functional pipeline to estimate camera trajectory:
-
-```
+```text
 ┌─────────────────────────────────────────────────────────────────┐
-│ INPUT - SYSTEM BOUNDARY                                         │
+│ MAIN.CPP - SYSTEM BOUNDARY                                      │
 ├─────────────────────────────────────────────────────────────────┤
-│ 1. Parse command line arguments                                 │
-│ 2. Load camera intrinsics from YAML                             │
-│ 3. Create image loader (scans directory)                        │
-│ 4. Select matching approach:                                    │
-│    • Hand-crafted: ORB descriptors + RANSAC matching            │
-│    • Learned: LightGlue (with DISK/SuperPoint features)         │
+│ 1. parse_args() - command line                                  │
+│ 2. CameraIntrinsics::load_from_yaml() - reads YAML              │
+│ 3. ImageLoader::create() - scans directory                      │
 └─────────────────────────────────────────────────────────────────┘
                               ↓
 ┌─────────────────────────────────────────────────────────────────┐
 │ PROCESSING LOOP                                                 │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
-│   For each consecutive image pair:                             │
-│                                                                 │
-│   1. Feature matching                                           │
-│      Extract and match features between image pairs            │
-│           ↓                                                     │
-│   2. Motion estimation                                          │
-│      Compute relative camera motion (rotation & translation)    │
-│      using essential matrix and RANSAC                          │
-│           ↓                                                     │
-│   3. Trajectory accumulation                                    │
-│      Integrate motion into world-frame camera trajectory        │
+│   loader.load_image_pair(i)  ←─── I/O hidden in method          │
+│            ↓                                                    │
+│   matcher.match_images(img1, img2)                              │
+│       ├─ FeatureDetector::detect(img1)                          │
+│       ├─ FeatureDetector::detect(img2)                          │
+│       └─ FeatureMatcher::match(desc1, desc2)                    │
+│            ↓                                                    │
+│   estimator.estimate(points1, points2)                          │
+│       ├─ cv::findEssentialMat (RANSAC)                          │
+│       └─ cv::recoverPose                                        │
+│            ↓                                                    │
+│   trajectory.add_motion(motion)  ←─── Stateful (correct)        │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
                               ↓
 ┌─────────────────────────────────────────────────────────────────┐
-│ OUTPUT - SYSTEM BOUNDARY                                        │
+│ OUTPUT                                                          │
 ├─────────────────────────────────────────────────────────────────┤
-│ • Save trajectory to JSON                                       │
-│ • Optional: Compare with ground truth                           │
+│ trajectory.save_to_json(path) - writes file                     │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### Directory Structure
+### Data Structures Through Pipeline
 
+```text
+Image Files
+    ↓ cv::imread
+cv::Mat (grayscale)
+    ↓ detect_features()
+DetectionResult {keypoints[], descriptors}
+    ↓ match_features()
+MatchResult {points1[], points2[], matches[]}
+    ↓ estimate_motion()
+MotionEstimate {R(3x3), t(3x1), inliers, valid}
+    ↓ Trajectory::add_motion()
+Pose {R, t}  [accumulated in poses_]
+    ↓ to_json()
+JSON string → File
 ```
+
+---
+
+## Design Violations
+
+### VIOLATION 1: FeatureDetector - Should Be Function
+
+**Location:** `include/visual_odometry/feature_detector.hpp`
+
+```cpp
+// CURRENT - Unnecessary class wrapper
+class FeatureDetector {
+private:
+    cv::Ptr<cv::ORB> orb_;  // Config, not state
+};
+```
+
+**Problem:** `orb_` doesn't change between calls. Each `detect()` is independent.
+
+**Should be:**
+
+```cpp
+struct FeatureDetectorConfig {
+    int max_features = 2000;
+};
+
+[[nodiscard]] auto detect_features(cv::Mat const& image,
+                                   FeatureDetectorConfig const& config)
+    -> DetectionResult;
+```
+
+---
+
+### VIOLATION 2: FeatureMatcher - Should Be Function
+
+**Location:** `include/visual_odometry/feature_matcher.hpp`
+
+```cpp
+// CURRENT - Unnecessary class wrapper
+class FeatureMatcher {
+private:
+    cv::Ptr<cv::BFMatcher> matcher_;
+    float ratio_threshold_;  // Config, not state
+};
+```
+
+**Should be:**
+
+```cpp
+struct FeatureMatcherConfig {
+    float ratio_threshold = 0.75f;
+};
+
+[[nodiscard]] auto match_features(cv::Mat const& desc1, cv::Mat const& desc2,
+                                  std::span<cv::KeyPoint const> kp1,
+                                  std::span<cv::KeyPoint const> kp2,
+                                  FeatureMatcherConfig const& config)
+    -> MatchResult;
+```
+
+---
+
+### VIOLATION 3: MatchAnythingMatcher - I/O Deep in Algorithm
+
+**Location:** `src/image_matcher.cpp:73-149`
+
+```cpp
+// CURRENT - I/O happens inside algorithm
+auto MatchAnythingMatcher::match_images(...) const -> MatchResult {
+    cv::imwrite(temp1.string(), img1);     // I/O HERE
+    cv::imwrite(temp2.string(), img2);     // I/O HERE
+    output = exec_command(cmd.str());      // SUBPROCESS HERE
+    std::filesystem::remove(temp1);        // I/O HERE
+    std::filesystem::remove(temp2);        // I/O HERE
+}
+```
+
+**Problems:**
+
+- File I/O in algorithm method
+- Subprocess spawned per call (model reloaded each time)
+- 100x overhead vs embedded approach
+- Security issues (command injection, predictable temp files)
+
+**Should be:** Embedded Python via nanobind (see Nanobind section below)
+
+---
+
+### VIOLATION 4: OrbImageMatcher - Unnecessary Wrapper
+
+**Location:** `include/visual_odometry/image_matcher.hpp:43-64`
+
+```cpp
+// CURRENT - Just composes two other classes
+class OrbImageMatcher : public ImageMatcher {
+    FeatureDetector detector_;
+    FeatureMatcher matcher_;
+};
+```
+
+**This is acceptable** if we need polymorphism for the plugin system. But the inner classes should become functions.
+
+---
+
+### CORRECT: Trajectory - Justified Stateful Class
+
+**Location:** `include/visual_odometry/trajectory.hpp`
+
+```cpp
+class Trajectory {
+    std::vector<Pose> poses_;  // Meaningful state - accumulates over time
+};
+```
+
+**Why correct:**
+
+- State persists across calls: each `add_motion()` depends on prior state
+- `current_pose()` returns accumulated result of all prior motions
+- This IS the edge of the system where state belongs
+
+---
+
+### CORRECT: Data Structs
+
+These are all correct - pure data containers:
+
+- `Pose` - camera pose (R, t)
+- `MotionEstimate` - relative motion result
+- `MatchResult` - feature matching output
+- `DetectionResult` - feature detection output
+- `CameraIntrinsics` - camera parameters
+
+---
+
+## Component Summary
+
+| Component | Current | Should Be | State Justified? |
+|-----------|---------|-----------|-----------------|
+| **FeatureDetector** | Class | Function + Config struct | No |
+| **FeatureMatcher** | Class | Function + Config struct | No |
+| **OrbImageMatcher** | Class | OK (needs polymorphism) | N/A |
+| **MatchAnythingMatcher** | Class + subprocess | Embedded Python | No |
+| **MotionEstimator** | Class | Could be function, but OK | Marginal |
+| **ImageLoader** | Class | OK (iteration state) | Yes |
+| **Trajectory** | Class | Correct | Yes |
+
+---
+
+## Nanobind Integration
+
+### Current State
+
+The nanobind bindings (`src/python_bindings.cpp`) expose:
+
+- ImageLoader, MatchResult, ImageMatcher, OrbImageMatcher
+- CameraIntrinsics, MotionEstimate, MotionEstimator
+- Pose, Trajectory
+- Factory function `create_matcher()`
+
+**cv::Mat ↔ numpy** conversion works via `cvnp_nano`.
+
+### Problem: MatchAnything Subprocess
+
+Current flow:
+
+```bash
+C++ match_images()
+  → write temp PNG files
+  → popen("python3 match_anything.py ...")
+  → parse JSON output
+  → delete temp files
+```
+
+**Issues:**
+
+- Model loaded fresh for EVERY image pair (~500ms overhead)
+- File I/O for every call
+- JSON serialization/deserialization overhead
+- ~100x slower than it should be
+
+### Solution: Embedded Python
+
+```cpp
+// Proposed: Load model ONCE, call directly
+class EmbeddedMatchAnything {
+public:
+    EmbeddedMatchAnything() {
+        // Load model once
+        auto match_anything = nb::module_::import_("match_anything_module");
+        model_ = match_anything.attr("load_model")();
+        processor_ = match_anything.attr("load_processor")();
+    }
+
+    auto match(cv::Mat const& img1, cv::Mat const& img2) -> MatchResult {
+        // Direct call - no temp files, no subprocess
+        auto np1 = cvnp::mat_to_nparray(img1);
+        auto np2 = cvnp::mat_to_nparray(img2);
+        auto result = model_.attr("match")(np1, np2);
+        return parse_result(result);
+    }
+
+private:
+    nb::object model_;
+    nb::object processor_;
+};
+```
+
+**Benefits:**
+
+- Model loaded once (~5s), reused for all frames
+- Direct memory access (no temp files)
+- ~5ms per match vs ~500ms current
+- No security issues (no shell commands)
+
+---
+
+## Viser Integration
+
+### Current State
+
+Three scripts use viser:
+
+- `visualize_trajectory.py` - Post-hoc visualization from JSON
+- `live_visualization.py` - Runs VO in Python, streams to viser
+- `test_viser.py` - Basic connectivity test
+
+**Current limitation:** No direct C++ → viser streaming.
+
+### Proposed Architecture
+
+```text
+┌─────────────────────────────────────────────────────────────────┐
+│                    C++ Core (Performance)                       │
+├─────────────────────────────────────────────────────────────────┤
+│ • detect_features() - pure function                             │
+│ • match_features() - pure function                              │
+│ • estimate_motion() - pure function                             │
+│ • Trajectory - state accumulation                               │
+└───────────────────────────┬─────────────────────────────────────┘
+                            │ nanobind
+                            ↓
+┌─────────────────────────────────────────────────────────────────┐
+│                 Python Orchestration Layer                      │
+├─────────────────────────────────────────────────────────────────┤
+│ • EmbeddedMatchAnything - ML inference                          │
+│ • Viser server - real-time 3D visualization                     │
+│ • Main loop - coordinates C++ functions + Python viz            │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Ideal Boundary
+
+**C++ (speed-critical):**
+
+- Feature detection (ORB)
+- RANSAC motion estimation
+- Pose composition
+- Image loading
+
+**Python (flexibility-critical):**
+
+- ML model inference (MatchAnything, future models)
+- Visualization (viser)
+- Configuration/experimentation
+- Analysis and debugging
+
+### Main Loop Options
+
+**Option A: Python-driven (recommended for flexibility)**
+
+```python
+import visual_odometry as vo
+
+loader = vo.ImageLoader(image_dir)
+matcher = EmbeddedMatchAnything()  # Python ML model
+estimator = vo.MotionEstimator(intrinsics)
+trajectory = vo.Trajectory()
+server = viser.ViserServer()
+
+for img1, img2 in loader:
+    matches = matcher.match(img1, img2)  # Python ML
+    motion = estimator.estimate(matches.points1, matches.points2)  # C++
+    trajectory.add_motion(motion)  # C++
+
+    # Real-time viz
+    server.scene.add_camera_frustum(trajectory.current_pose())
+```
+
+**Option B: C++-driven with callbacks**
+
+```cpp
+// C++ drives, Python receives updates
+auto on_pose = [&](Pose const& p) {
+    py_viser.attr("add_pose")(p);  // Callback to Python
+};
+
+run_vo_pipeline(loader, matcher, estimator, on_pose);
+```
+
+---
+
+## Recommended Refactoring Plan
+
+### Phase 1: Core Functions (High Priority)
+
+1. **Extract `detect_features()` function**
+   - Create `FeatureDetectorConfig` struct
+   - Make detection a pure function
+   - Keep wrapper class only if needed for Python bindings
+
+2. **Extract `match_features()` function**
+   - Create `FeatureMatcherConfig` struct
+   - Make matching a pure function
+
+3. **Extract `estimate_motion()` function**
+   - Create `MotionEstimatorConfig` struct
+   - Pure function taking matches + config
+
+### Phase 2: Embedded ML (High Priority)
+
+4. **Replace MatchAnything subprocess with embedded Python**
+   - Create Python module with `load_model()`, `match()`
+   - Call from C++ via nanobind
+   - Delete temp file logic entirely
+
+### Phase 3: Visualization (Medium Priority)
+
+5. **Create Python orchestration layer**
+   - Main loop in Python using C++ functions
+   - Viser integration for real-time viz
+   - Config via Python (easy experimentation)
+
+### Phase 4: Cleanup (Low Priority)
+
+6. **Remove unnecessary class wrappers**
+   - ImageMatcher hierarchy can stay (polymorphism needed)
+   - Inner implementation becomes function calls
+
+---
+
+## Target Architecture
+
+```text
 include/visual_odometry/
-├── feature_detector.hpp    # Pure function: detect_features()
-├── feature_matcher.hpp     # Pure function: match_features()
-├── motion_estimator.hpp    # Pure function: estimate_motion()
-├── image_matcher.hpp       # Matcher implementations (ORB, LightGlue)
-├── matcher_concept.hpp     # C++20 concept: matcher_like
-├── trajectory.hpp          # Stateful pose accumulation
-├── image_loader.hpp        # Stateful image iteration
-└── onnx_session.hpp        # RAII wrapper for ONNX Runtime
+├── types.hpp              # All data structs (Pose, MotionEstimate, etc.)
+├── detection.hpp          # detect_features() function
+├── matching.hpp           # match_features() function
+├── motion.hpp             # estimate_motion() function
+├── trajectory.hpp         # Trajectory class (stateful, at edge)
+├── image_loader.hpp       # ImageLoader class (I/O at edge)
+└── image_matcher.hpp      # ImageMatcher interface (for polymorphism)
 
 src/
-├── feature_detector.cpp    # ORB-based feature detection
-├── feature_matcher.cpp     # Brute-force matching + ratio test
-├── motion_estimator.cpp    # Essential matrix → R, t recovery
-├── image_matcher.cpp       # ORB and LightGlue implementations
-├── trajectory.cpp          # Pose accumulation + JSON export
-├── image_loader.cpp        # Sequential image loading
-├── onnx_session.cpp        # ONNX Runtime inference
-├── python_bindings.cpp     # Nanobind Python API
-└── main.cpp                # CLI orchestrator
-
-python/visual_odometry/
-└── __init__.py             # Python module initialization
+├── detection.cpp
+├── matching.cpp
+├── motion.cpp
+├── trajectory.cpp
+├── image_loader.cpp
+├── orb_image_matcher.cpp  # Thin wrapper calling functions
+└── python_bindings.cpp    # Expose functions + classes
 
 scripts/
-├── visualize_trajectory.py # Viser-based 3D visualization
-├── live_visualization.py   # Real-time VO visualization
-└── compare_trajectories.py # Ground truth comparison tools
+├── main.py                # Python orchestration (NEW)
+├── match_anything.py      # ML module for embedded use
+├── visualize.py           # Viser visualization
+└── analysis.py            # Post-processing tools
 ```
 
----
-
-## Core Components
-
-### 1. Feature Detection
-
-**Purpose:** Extract distinctive keypoints and descriptors from grayscale images.
-
-**Interface:**
-```cpp
-[[nodiscard]] auto detect_features(
-    cv::Mat const& image,
-    feature_detector_config const& config = {})
-    -> detection_result;
-```
-
-**Algorithm:** Uses OpenCV's ORB (Oriented FAST and Rotated BRIEF)
-- FAST corner detection for keypoints
-- BRIEF descriptors with rotation invariance
-- Configurable number of features (default: 2000)
-
-**Performance:** ~5-10ms per image (1000 features)
-
----
-
-### 2. Feature Matching
-
-**Purpose:** Find correspondences between keypoints in two images using descriptor similarity.
-
-**Interface:**
-```cpp
-[[nodiscard]] auto match_features(
-    cv::Mat const& desc1,
-    cv::Mat const& desc2,
-    std::span<cv::KeyPoint const> kp1,
-    std::span<cv::KeyPoint const> kp2,
-    feature_matcher_config const& config = {})
-    -> match_result;
-```
-
-**Algorithm:**
-- Brute-force matching with Hamming distance (for binary descriptors)
-- KNN matching (k=2) for Lowe's ratio test
-- Ratio test filters ambiguous matches (default threshold: 0.75)
-
-**Performance:** ~2-5ms per pair (1000 features)
-
----
-
-### 3. Motion Estimation
-
-**Purpose:** Compute relative camera motion (rotation and translation) from matched point correspondences.
-
-**Interface:**
-```cpp
-[[nodiscard]] auto estimate_motion(
-    std::span<cv::Point2f const> points1,
-    std::span<cv::Point2f const> points2,
-    camera_intrinsics const& intrinsics,
-    motion_estimator_config const& config = {})
-    -> motion_estimate;
-```
-
-**Algorithm:**
-1. Compute essential matrix using RANSAC (`cv::findEssentialMat`)
-2. Decompose essential matrix to recover rotation and translation (`cv::recoverPose`)
-3. Validate result (minimum inliers, essential matrix validity)
-
-**Output:** Relative pose (R, t) and inlier count, or invalid flag if estimation fails.
-
-**Performance:** ~1-3ms per pair (100-500 matches)
-
----
-
-### 4. Trajectory
-
-**Purpose:** Accumulate relative motions into absolute world-frame poses.
-
-**Responsibilities:**
-- Compose relative transformations into global trajectory
-- Maintain full pose history
-- Export trajectory in various formats (currently TUM RGB-D JSON)
-
----
-
-### 5. Image Loader
-
-**Purpose:** Load and iterate through sequential images from a directory.
-
-**Responsibilities:**
-- Scan directory for supported image formats (JPG, PNG)
-- Load consecutive image pairs
-- Convert images to grayscale for processing
-
----
-
-## Algorithmic Pipeline
-
-### Frame-to-Frame Visual Odometry
-
-The system implements monocular visual odometry using the essential matrix approach:
-
-```
-Image Pair (t, t+1)
-        ↓
-┌──────────────────────┐
-│  Feature Detection   │  Extract keypoints and descriptors
-│                      │  (ORB or LightGlue's learned features)
-└──────────────────────┘
-        ↓
-┌──────────────────────┐
-│  Feature Matching    │  Find correspondences between frames
-│                      │  (Descriptor matching or learned matching)
-└──────────────────────┘
-        ↓
-┌──────────────────────┐
-│  Motion Estimation   │  Essential matrix + RANSAC
-│                      │  → Recover R, t
-└──────────────────────┘
-        ↓
-┌──────────────────────┐
-│  Pose Accumulation   │  T_world = T_world * T_relative
-│                      │  (SE(3) composition)
-└──────────────────────┘
-        ↓
-    Trajectory
-```
-
-### Essential Matrix Geometry
-
-The essential matrix E relates corresponding points in two calibrated cameras:
-
-```
-p2^T * E * p1 = 0
-```
-
-Where:
-- `p1`, `p2` are normalized image coordinates
-- `E = [t]_× R` encodes rotation R and translation direction t
-- RANSAC finds inliers fitting the epipolar constraint
-
-The essential matrix is decomposed to recover the relative pose, which is then accumulated into the world-frame trajectory.
-
-**Key constraint:** Translation scale is ambiguous (monocular scale drift). The system estimates up to an unknown scale factor.
-
----
-
-## Data Flow
-
-### Type Transformations Through Pipeline
-
-```
-Image Files (PNG/JPG on disk)
-    ↓ cv::imread + cvtColor
-cv::Mat (CV_8UC1 grayscale)
-    ↓ detect_features()
-detection_result {
-    keypoints: vector<cv::KeyPoint>
-    descriptors: cv::Mat (CV_8UC1)
-}
-    ↓ match_features()
-match_result {
-    points1: vector<cv::Point2f>
-    points2: vector<cv::Point2f>
-    matches: vector<cv::DMatch>
-}
-    ↓ estimate_motion()
-motion_estimate {
-    rotation: Eigen::Matrix3d
-    translation: Eigen::Vector3d
-    inliers: int
-    valid: bool
-}
-    ↓ Trajectory::add_motion()
-pose {
-    rotation: Eigen::Matrix3d
-    translation: Eigen::Vector3d
-}
-[accumulated in poses_ vector]
-    ↓ Trajectory::to_json()
-JSON string (TUM RGB-D format)
-    ↓ write to file
-trajectory.json on disk
-```
-
-### Coordinate Systems
-
-**Image coordinates** → **Normalized coordinates** → **3D world coordinates**
-
-1. **Image coordinates** (pixels): Raw keypoint positions from feature detection
-2. **Normalized coordinates** (metric): Points after applying inverse camera intrinsics
-3. **Camera frame**: Right-handed, Z-forward, Y-down (OpenCV convention)
-4. **World frame**: Accumulated global poses starting from identity
-
-**Intrinsic calibration** (fx, fy, cx, cy) is required to convert pixel coordinates to normalized coordinates for essential matrix estimation.
-
----
-
-## Available Matchers
-
-The system supports multiple matching algorithms:
-
-### ORB Matcher (Classical)
-
-**Algorithm:** Hand-crafted pipeline
-1. ORB feature detection on both images
-2. Brute-force descriptor matching
-3. Lowe's ratio test for filtering
-
-**Advantages:**
-- No external dependencies beyond OpenCV
-- Fast (~10-15ms per pair)
-- Lightweight
-
-**Limitations:**
-- Lower recall in challenging conditions (lighting, viewpoint changes)
-- Fixed feature descriptor
-
----
-
-### LightGlue Matcher (Learned)
-
-**Algorithm:** Deep learning pipeline (ONNX Runtime)
-1. SuperPoint keypoint detection and description
-2. LightGlue attention-based matching
-
-**Advantages:**
-- Superior matching quality (higher inlier ratios)
-- Robust to lighting and viewpoint changes
-- State-of-the-art performance on benchmarks
-
-**Requirements:**
-- ONNX Runtime dependency
-- Pre-exported ONNX model file
-
-**Performance:** ~20-50ms per pair (depends on image size, hardware)
-
----
-
-## Future Directions
-
-### 1. Python-Driven Main Loop
-
-**Current state:** Main loop in C++ (`main.cpp`)
-
-**Proposed:** Python orchestration for flexibility
-
-Benefits:
-- Easy experimentation with different matchers and configurations
-- Integration with Python ecosystem (matplotlib, pandas, logging)
-- Simpler debugging and visualization hooks
-- Keep C++ for performance-critical algorithms
-
-See [DESIGN_AND_STANDARDS.md](DESIGN_AND_STANDARDS.md#python-integration) for examples.
-
-### 2. Real-Time Viser Integration
-
-**Current state:** Post-hoc visualization scripts
-
-**Proposed:** Live trajectory visualization during processing
-
-Benefits:
-- Immediate feedback on algorithm performance
-- Visual debugging of failures (tracking loss, drift)
-- 3D scene understanding
-
-### 3. Additional Learned Matchers
-
-**Candidates:**
-- SuperGlue (attention-based matching)
-- LoFTR (detector-free matching)
-- DKM (Dense Keypoint Matching)
-- ASpanFormer (cross-attention)
-
-The polymorphic matcher architecture makes integration straightforward. See [DESIGN_AND_STANDARDS.md](DESIGN_AND_STANDARDS.md#extension-points) for the integration pattern.
-
-### 4. Backend Optimization
-
-**Current:** Frame-to-frame VO (no loop closure)
-
-**Future extensions:**
-- Bundle adjustment for global optimization
-- Loop closure detection to correct drift
-- Pose graph optimization
-- Integration with SLAM frameworks (ORB-SLAM3, etc.)
-
-**Design principle:** Keep VO pure, add backend as separate module
-
-### 5. Multi-Camera Support
-
-**Current:** Monocular only
-
-**Extension points:**
-- Stereo matching functions for depth estimation
-- Multi-camera trajectory fusion
-- Extrinsic calibration utilities
-
----
-
-## Summary
-
-The visual odometry system architecture emphasizes:
-
-**Algorithmic clarity:**
-- Pure functions for core algorithms (detection, matching, motion estimation)
-- Explicit data flow through well-defined types
-- Essential matrix approach for camera motion estimation
-
-**System organization:**
-- State isolated to system boundaries (I/O, accumulation, resources)
-- Polymorphic matchers via concepts and variants
-- Functional core with imperative shell
-
-**Extensibility:**
-- Easy integration of new matching algorithms
-- Configurable parameters via structs
-- Multiple output formats
-- Python bindings for high-level orchestration
-
-For implementation details, coding patterns, and extension guides, see [DESIGN_AND_STANDARDS.md](DESIGN_AND_STANDARDS.md).
+**Key insight:** The C++ becomes a library of pure functions + minimal stateful classes. Python orchestrates the pipeline, handles ML, and provides visualization.
