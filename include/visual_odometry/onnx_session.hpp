@@ -1,8 +1,8 @@
 #pragma once
 
-#include <onnxruntime_cxx_api.h>
 #include <filesystem>
 #include <memory>
+#include <onnxruntime_cxx_api.h>
 #include <span>
 #include <string>
 #include <string_view>
@@ -32,7 +32,7 @@ public:
      * @throws Ort::Exception if model loading fails.
      */
     onnx_session(std::filesystem::path const& model_path,
-                Ort::SessionOptions const& session_options);
+                 Ort::SessionOptions const& session_options);
 
     // Move-only (Ort::Session is not copyable)
     onnx_session(onnx_session const&) = delete;
@@ -55,8 +55,7 @@ public:
      */
     [[nodiscard]] auto run(std::span<char const* const> input_names,
                            std::span<Ort::Value> input_tensors,
-                           std::span<char const* const> output_names)
-        -> std::vector<Ort::Value>;
+                           std::span<char const* const> output_names) -> std::vector<Ort::Value>;
 
     /**
      * @brief Get the names of all input tensors.
@@ -75,16 +74,12 @@ public:
     /**
      * @brief Get the number of inputs.
      */
-    [[nodiscard]] auto num_inputs() const noexcept -> size_t {
-        return input_names_.size();
-    }
+    [[nodiscard]] auto num_inputs() const noexcept -> size_t { return input_names_.size(); }
 
     /**
      * @brief Get the number of outputs.
      */
-    [[nodiscard]] auto num_outputs() const noexcept -> size_t {
-        return output_names_.size();
-    }
+    [[nodiscard]] auto num_outputs() const noexcept -> size_t { return output_names_.size(); }
 
     /**
      * @brief Get the shape of an input tensor.
@@ -116,9 +111,7 @@ private:
  * @param shape Tensor shape.
  * @return Ort::Value containing the tensor.
  */
-[[nodiscard]] auto create_tensor(float const* data,
-                                  std::span<int64_t const> shape)
-    -> Ort::Value;
+[[nodiscard]] auto create_tensor(float const* data, std::span<int64_t const> shape) -> Ort::Value;
 
 /**
  * @brief Create a float tensor from a vector.
@@ -126,8 +119,7 @@ private:
  * @param shape Tensor shape.
  * @return Ort::Value containing the tensor.
  */
-[[nodiscard]] auto create_tensor(std::vector<float> const& data,
-                                  std::span<int64_t const> shape)
+[[nodiscard]] auto create_tensor(std::vector<float> const& data, std::span<int64_t const> shape)
     -> Ort::Value;
 
 }  // namespace visual_odometry

@@ -1,15 +1,16 @@
 #pragma once
 
-#include <visual_odometry/feature_detector.hpp>
-#include <visual_odometry/feature_matcher.hpp>
-#include <visual_odometry/matcher_concept.hpp>
-#include <opencv2/core.hpp>
 #include <filesystem>
 #include <memory>
 #include <optional>
 #include <string>
 #include <string_view>
 #include <variant>
+
+#include <opencv2/core.hpp>
+#include <visual_odometry/feature_detector.hpp>
+#include <visual_odometry/feature_matcher.hpp>
+#include <visual_odometry/matcher_concept.hpp>
 
 // Forward declaration for onnx_session (only available when onnxruntime is linked)
 namespace visual_odometry {
@@ -26,8 +27,7 @@ namespace visual_odometry {
  * @param matcher_config Configuration for feature matching.
  * @return match_result containing corresponding points.
  */
-[[nodiscard]] auto match_images_orb(cv::Mat const& img1,
-                                    cv::Mat const& img2,
+[[nodiscard]] auto match_images_orb(cv::Mat const& img1, cv::Mat const& img2,
                                     feature_detector_config const& detector_config = {},
                                     feature_matcher_config const& matcher_config = {})
     -> match_result;
@@ -46,19 +46,15 @@ struct orb_matcher {
      */
     explicit orb_matcher(int max_features = default_max_features,
                          float ratio_threshold = default_ratio_threshold)
-        : detector_config_{.max_features = max_features}
-        , matcher_config_{.ratio_threshold = ratio_threshold} {}
+        : detector_config_{.max_features = max_features},
+          matcher_config_{.ratio_threshold = ratio_threshold} {}
 
-    [[nodiscard]] auto match_images(cv::Mat const& img1,
-                                    cv::Mat const& img2) const
-        -> match_result
-    {
+    [[nodiscard]] auto match_images(cv::Mat const& img1, cv::Mat const& img2) const
+        -> match_result {
         return match_images_orb(img1, img2, detector_config_, matcher_config_);
     }
 
-    [[nodiscard]] auto name() const noexcept -> std::string_view {
-        return "ORB";
-    }
+    [[nodiscard]] auto name() const noexcept -> std::string_view { return "ORB"; }
 
 private:
     feature_detector_config detector_config_;
@@ -88,13 +84,9 @@ struct lightglue_matcher {
     auto operator=(lightglue_matcher&&) noexcept -> lightglue_matcher&;
     ~lightglue_matcher();
 
-    [[nodiscard]] auto match_images(cv::Mat const& img1,
-                                    cv::Mat const& img2) const
-        -> match_result;
+    [[nodiscard]] auto match_images(cv::Mat const& img1, cv::Mat const& img2) const -> match_result;
 
-    [[nodiscard]] auto name() const noexcept -> std::string_view {
-        return "LightGlue";
-    }
+    [[nodiscard]] auto name() const noexcept -> std::string_view { return "LightGlue"; }
 
 private:
     std::filesystem::path model_path_;
@@ -103,7 +95,8 @@ private:
 
 // Verify matcher_like concept satisfaction
 static_assert(matcher_like<orb_matcher>, "orb_matcher must satisfy matcher_like concept");
-static_assert(matcher_like<lightglue_matcher>, "lightglue_matcher must satisfy matcher_like concept");
+static_assert(matcher_like<lightglue_matcher>,
+              "lightglue_matcher must satisfy matcher_like concept");
 
 /**
  * @brief Variant type holding any image matcher implementation.
@@ -120,7 +113,6 @@ using image_matcher = std::variant<orb_matcher, lightglue_matcher>;
  * @return image_matcher variant containing the requested matcher.
  * @throws std::runtime_error if matcher name is unknown.
  */
-[[nodiscard]] auto create_image_matcher(std::string_view name)
-    -> image_matcher;
+[[nodiscard]] auto create_image_matcher(std::string_view name) -> image_matcher;
 
 }  // namespace visual_odometry

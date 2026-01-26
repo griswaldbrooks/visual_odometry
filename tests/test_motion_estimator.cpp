@@ -1,12 +1,13 @@
-#include <gtest/gtest.h>
-#include <gmock/gmock.h>
-#include <visual_odometry/motion_estimator.hpp>
 #include <random>
 #include <string>
 #include <vector>
+
+#include <Eigen/Dense>
+#include <gmock/gmock.h>
+#include <gtest/gtest.h>
 #include <opencv2/core/mat.hpp>
 #include <opencv2/core/types.hpp>
-#include <Eigen/Dense>
+#include <visual_odometry/motion_estimator.hpp>
 
 class motion_estimator_test : public ::testing::Test {
 protected:
@@ -19,26 +20,24 @@ protected:
     }
 
     // Generate synthetic matched points with known motion
-    void generate_synthetic_points(Eigen::Matrix3d const& rotation,  // NOLINT(misc-include-cleaner)
-                                    Eigen::Vector3d const& translation,  // NOLINT(misc-include-cleaner)
-                                    int num_points,
-                                    std::vector<cv::Point2f>& points1,
-                                    std::vector<cv::Point2f>& points2) const {
+    void generate_synthetic_points(
+        Eigen::Matrix3d const& rotation,     // NOLINT(misc-include-cleaner)
+        Eigen::Vector3d const& translation,  // NOLINT(misc-include-cleaner)
+        int num_points, std::vector<cv::Point2f>& points1,
+        std::vector<cv::Point2f>& points2) const {
         std::mt19937 rng(42);
         std::uniform_real_distribution<double> dist_x(100, 1100);
         std::uniform_real_distribution<double> dist_y(50, 300);
         std::uniform_real_distribution<double> dist_z(5, 50);
 
         Eigen::Matrix3d intrinsics_matrix;
-        intrinsics_matrix << intrinsics_.fx, 0, intrinsics_.cx,
-             0, intrinsics_.fy, intrinsics_.cy,
-             0, 0, 1;
+        intrinsics_matrix << intrinsics_.fx, 0, intrinsics_.cx, 0, intrinsics_.fy, intrinsics_.cy,
+            0, 0, 1;
 
         for (int i = 0; i < num_points; ++i) {
             // Random 3D point
-            Eigen::Vector3d point_3d(dist_x(rng) - intrinsics_.cx,
-                              dist_y(rng) - intrinsics_.cy,
-                              dist_z(rng));
+            Eigen::Vector3d point_3d(dist_x(rng) - intrinsics_.cx, dist_y(rng) - intrinsics_.cy,
+                                     dist_z(rng));
             point_3d(0) *= point_3d(2) / intrinsics_.fx;
             point_3d(1) *= point_3d(2) / intrinsics_.fy;
 
@@ -56,12 +55,7 @@ protected:
         }
     }
 
-    visual_odometry::camera_intrinsics intrinsics_{
-        .fx = 0.0,
-        .fy = 0.0,
-        .cx = 0.0,
-        .cy = 0.0
-    };
+    visual_odometry::camera_intrinsics intrinsics_{.fx = 0.0, .fy = 0.0, .cx = 0.0, .cy = 0.0};
 };
 
 TEST_F(motion_estimator_test, EstimatesForwardMotion) {
@@ -153,7 +147,8 @@ TEST_F(motion_estimator_test, LoadsIntrinsicsFromYaml) {
 TEST_F(motion_estimator_test, LoadFromYamlReturnsErrorForMissingFile) {
     // GIVEN a nonexistent file path
     // WHEN loading intrinsics
-    auto const result = visual_odometry::camera_intrinsics::load_from_yaml("/nonexistent/path.yaml");
+    auto const result =
+        visual_odometry::camera_intrinsics::load_from_yaml("/nonexistent/path.yaml");
 
     // THEN loading should fail with error
     ASSERT_FALSE(result.has_value());

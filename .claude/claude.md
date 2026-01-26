@@ -3,6 +3,7 @@
 ## Agent Delegation Policy
 
 **IMPORTANT**: Delegate ALL tasks to the specialized agents in `.claude/agents/`:
+
 - **project-manager** - High-level coordination and orchestration of complex tasks
 - **coder** - Implementation and code writing tasks
 - **code-reviewer** - Code quality reviews before committing

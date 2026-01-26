@@ -1,12 +1,13 @@
-#include <gtest/gtest.h>
-#include <gmock/gmock.h>
-#include <visual_odometry/trajectory.hpp>
 #include <cstddef>
 #include <filesystem>
 #include <fstream>
 #include <iterator>
 #include <numbers>
 #include <string>
+
+#include <gmock/gmock.h>
+#include <gtest/gtest.h>
+#include <visual_odometry/trajectory.hpp>
 
 class trajectory_test : public ::testing::Test {
 protected:
@@ -19,7 +20,8 @@ protected:
 
         // Create a rotation motion (90 degrees around Y)
         double const angle = std::numbers::pi / 2.0;
-        rotation_motion_.rotation = Eigen::AngleAxisd(angle, Eigen::Vector3d::UnitY()).toRotationMatrix();
+        rotation_motion_.rotation =
+            Eigen::AngleAxisd(angle, Eigen::Vector3d::UnitY()).toRotationMatrix();
         rotation_motion_.translation = Eigen::Vector3d(0, 0, 1);
         rotation_motion_.inliers = 100;
         rotation_motion_.valid = true;
@@ -228,7 +230,7 @@ TEST_F(trajectory_test, SaveToJsonCreatesFile) {
     // AND file should contain valid JSON
     std::ifstream file(filepath);
     std::string const content((std::istreambuf_iterator<char>(file)),
-                        std::istreambuf_iterator<char>());
+                              std::istreambuf_iterator<char>());
     EXPECT_THAT(content, testing::HasSubstr("\"poses\""));
 
     // Cleanup

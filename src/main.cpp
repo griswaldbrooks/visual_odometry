@@ -1,10 +1,3 @@
-#include <visual_odometry/feature_matcher.hpp>
-#include <visual_odometry/image_loader.hpp>
-#include <visual_odometry/image_matcher.hpp>
-#include <visual_odometry/matcher_concept.hpp>
-#include <visual_odometry/motion_estimator.hpp>
-#include <visual_odometry/trajectory.hpp>
-
 #include <algorithm>
 #include <cstdlib>
 #include <cstring>
@@ -16,6 +9,13 @@
 #include <string_view>
 #include <utility>
 #include <variant>
+
+#include <visual_odometry/feature_matcher.hpp>
+#include <visual_odometry/image_loader.hpp>
+#include <visual_odometry/image_matcher.hpp>
+#include <visual_odometry/matcher_concept.hpp>
+#include <visual_odometry/motion_estimator.hpp>
+#include <visual_odometry/trajectory.hpp>
 
 namespace {
 
@@ -39,7 +39,8 @@ void print_usage(std::string_view program) {
               << "  --help             Show this help message\n";
 }
 
-auto parse_args(int argc, char* argv[]) -> std::optional<command_args> {  // NOLINT(cppcoreguidelines-avoid-c-arrays,modernize-avoid-c-arrays)
+auto parse_args(int argc, char* argv[]) -> std::optional<
+    command_args> {  // NOLINT(cppcoreguidelines-avoid-c-arrays,modernize-avoid-c-arrays)
     command_args args;
 
     for (int i = 1; i < argc; ++i) {
@@ -88,7 +89,8 @@ auto main(int argc, char* argv[]) -> int {  // NOLINT(bugprone-exception-escape)
               << "  Camera:     " << args->camera_yaml << "\n"
               << "  Output:     " << args->output_path << "\n"
               << "  Matcher:    " << args->matcher << "\n"
-              << "  Max frames: " << (args->max_frames > 0 ? std::to_string(args->max_frames) : "all") << "\n\n";
+              << "  Max frames: "
+              << (args->max_frames > 0 ? std::to_string(args->max_frames) : "all") << "\n\n";
 
     // Load camera intrinsics
     auto intrinsics_result = visual_odometry::camera_intrinsics::load_from_yaml(args->camera_yaml);
@@ -97,8 +99,8 @@ auto main(int argc, char* argv[]) -> int {  // NOLINT(bugprone-exception-escape)
         return 1;
     }
     auto const& intrinsics = *intrinsics_result;
-    std::cout << "Loaded camera intrinsics (fx=" << intrinsics.fx
-              << ", fy=" << intrinsics.fy << ")\n";
+    std::cout << "Loaded camera intrinsics (fx=" << intrinsics.fx << ", fy=" << intrinsics.fy
+              << ")\n";
 
     // Initialize image loader
     auto loader_result = visual_odometry::image_loader::create(args->image_dir);
@@ -122,7 +124,10 @@ auto main(int argc, char* argv[]) -> int {  // NOLINT(bugprone-exception-escape)
         std::cerr << "Error: " << e.what() << "\n";
         return 1;
     }
-    std::cout << "Using matcher: " << std::visit([](auto const& m) -> std::string { return std::string{m.name()}; }, matcher) << "\n";
+    std::cout << "Using matcher: "
+              << std::visit([](auto const& m) -> std::string { return std::string{m.name()}; },
+                            matcher)
+              << "\n";
 
     visual_odometry::motion_estimator_config const config{};
     visual_odometry::Trajectory trajectory;
@@ -130,8 +135,8 @@ auto main(int argc, char* argv[]) -> int {  // NOLINT(bugprone-exception-escape)
     // Determine number of frames to process
     auto const total_pairs = loader.size() - 1;
     auto const max_pairs = args->max_frames > 0
-        ? std::min(static_cast<size_t>(args->max_frames), total_pairs)
-        : total_pairs;
+                               ? std::min(static_cast<size_t>(args->max_frames), total_pairs)
+                               : total_pairs;
 
     std::cout << "\nProcessing " << max_pairs << " frame pairs...\n";
 
@@ -140,8 +145,8 @@ auto main(int argc, char* argv[]) -> int {  // NOLINT(bugprone-exception-escape)
     for (size_t i = 0; i < max_pairs; ++i) {
         auto pair_result = loader.load_image_pair(i);
         if (!pair_result) {
-            std::cerr << "Warning: Failed to load pair " << i << ": "
-                      << pair_result.error() << "\n";
+            std::cerr << "Warning: Failed to load pair " << i << ": " << pair_result.error()
+                      << "\n";
             continue;
         }
         auto const& [img1, img2] = *pair_result;
@@ -166,13 +171,12 @@ auto main(int argc, char* argv[]) -> int {  // NOLINT(bugprone-exception-escape)
         if ((i + 1) % 100 == 0 || i == max_pairs - 1) {
             std::cout << "  Frame " << std::setw(5) << (i + 1) << "/" << max_pairs
                       << " | Matches: " << match_result.matches.size()
-                      << " | Inliers: " << motion.inliers
-                      << (motion.valid ? "" : " [FAILED]") << "\n";
+                      << " | Inliers: " << motion.inliers << (motion.valid ? "" : " [FAILED]")
+                      << "\n";
         }
     }
 
-    std::cout << "\nProcessed " << max_pairs << " pairs, "
-              << valid_motions << " valid motions\n";
+    std::cout << "\nProcessed " << max_pairs << " pairs, " << valid_motions << " valid motions\n";
 
     // Save trajectory to JSON
     auto save_result = trajectory.save_to_json(args->output_path);
@@ -181,8 +185,8 @@ auto main(int argc, char* argv[]) -> int {  // NOLINT(bugprone-exception-escape)
         return 1;
     }
 
-    std::cout << "Saved trajectory with " << trajectory.size()
-              << " poses to: " << args->output_path << "\n";
+    std::cout << "Saved trajectory with " << trajectory.size() << " poses to: " << args->output_path
+              << "\n";
 
     return 0;
 }

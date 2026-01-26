@@ -1,11 +1,12 @@
 #pragma once
 
-#include <visual_odometry/motion_estimator.hpp>
-#include <Eigen/Core>
-#include <Eigen/Geometry>
 #include <filesystem>
 #include <string>
 #include <vector>
+
+#include <Eigen/Core>
+#include <Eigen/Geometry>
+#include <visual_odometry/motion_estimator.hpp>
 
 namespace visual_odometry {
 

@@ -1,11 +1,10 @@
-#include <gtest/gtest.h>
-#include <visual_odometry/feature_detector.hpp>
-
 #include <cstddef>
 
+#include <gtest/gtest.h>
 #include <opencv2/core.hpp>
 #include <opencv2/core/hal/interface.h>
 #include <opencv2/core/types.hpp>
+#include <visual_odometry/feature_detector.hpp>
 
 class feature_detector_test : public ::testing::Test {
 protected:
@@ -14,8 +13,7 @@ protected:
         test_image_ = cv::Mat(480, 640, CV_8UC1);
         for (int y = 0; y < test_image_.rows; ++y) {
             for (int x = 0; x < test_image_.cols; ++x) {
-                test_image_.at<uchar>(y, x) =
-                    ((x / 32) % 2 == (y / 32) % 2) ? 255 : 0;
+                test_image_.at<uchar>(y, x) = ((x / 32) % 2 == (y / 32) % 2) ? 255 : 0;
             }
         }
         // Add some noise for more realistic features

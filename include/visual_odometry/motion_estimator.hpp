@@ -1,14 +1,15 @@
 #pragma once
 
-#include <opencv2/core.hpp>
-#include <Eigen/Core>
-#include <Eigen/Geometry>
-#include <tl/expected.hpp>
 #include <optional>
 #include <span>
 #include <string>
 #include <string_view>
 #include <vector>
+
+#include <Eigen/Core>
+#include <Eigen/Geometry>
+#include <opencv2/core.hpp>
+#include <tl/expected.hpp>
 
 namespace visual_odometry {
 
@@ -45,8 +46,8 @@ struct camera_intrinsics {
  * @brief Configuration parameters for motion estimation.
  */
 struct motion_estimator_config {
-    double ransac_threshold{1.0};   ///< RANSAC reprojection threshold in pixels
-    double ransac_confidence{0.999}; ///< RANSAC confidence level (0-1)
+    double ransac_threshold{1.0};     ///< RANSAC reprojection threshold in pixels
+    double ransac_confidence{0.999};  ///< RANSAC confidence level (0-1)
 };
 
 /**
@@ -68,9 +69,8 @@ struct motion_estimate {
  * @return motion_estimate containing R, t if successful.
  */
 [[nodiscard]] auto estimate_motion(std::span<cv::Point2f const> points1,
-                                    std::span<cv::Point2f const> points2,
-                                    camera_intrinsics const& intrinsics,
-                                    motion_estimator_config const& config = {})
-    -> motion_estimate;
+                                   std::span<cv::Point2f const> points2,
+                                   camera_intrinsics const& intrinsics,
+                                   motion_estimator_config const& config = {}) -> motion_estimate;
 
 }  // namespace visual_odometry

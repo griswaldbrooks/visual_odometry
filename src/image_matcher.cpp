@@ -1,25 +1,24 @@
-#include <visual_odometry/image_matcher.hpp>
-#include <visual_odometry/feature_detector.hpp>
-#include <visual_odometry/feature_matcher.hpp>
-#include <visual_odometry/onnx_session.hpp>
-
 #include <array>
 #include <cctype>
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
 #include <memory>
+#include <onnxruntime_cxx_api.h>
 #include <stdexcept>
 #include <string>
 #include <string_view>
 #include <utility>
 #include <vector>
 
-#include <opencv2/core/mat.hpp>
 #include <opencv2/core/hal/interface.h>
+#include <opencv2/core/mat.hpp>
 #include <opencv2/core/types.hpp>
 #include <opencv2/imgproc.hpp>
-#include <onnxruntime_cxx_api.h>
+#include <visual_odometry/feature_detector.hpp>
+#include <visual_odometry/feature_matcher.hpp>
+#include <visual_odometry/image_matcher.hpp>
+#include <visual_odometry/onnx_session.hpp>
 
 namespace visual_odometry {
 
@@ -69,34 +68,29 @@ auto preprocess_image_for_lightglue(cv::Mat const& img)
 
 }  // namespace
 
-auto match_images_orb(cv::Mat const& img1,
-                      cv::Mat const& img2,
+auto match_images_orb(cv::Mat const& img1, cv::Mat const& img2,
                       feature_detector_config const& detector_config,
-                      feature_matcher_config const& matcher_config)
-    -> match_result
-{
+                      feature_matcher_config const& matcher_config) -> match_result {
     // Detect features in both images
     auto const det1 = detect_features(img1, detector_config);
     auto const det2 = detect_features(img2, detector_config);
 
     // Match features
-    return match_features(det1.descriptors, det2.descriptors,
-                          det1.keypoints, det2.keypoints,
+    return match_features(det1.descriptors, det2.descriptors, det1.keypoints, det2.keypoints,
                           matcher_config);
 }
 
 // lightglue_matcher implementation
 
 lightglue_matcher::lightglue_matcher(std::filesystem::path model_path)
-    : model_path_(std::move(model_path)),
-      session_(std::make_unique<onnx_session>(model_path_)) {}
+    : model_path_(std::move(model_path)), session_(std::make_unique<onnx_session>(model_path_)) {}
 
 lightglue_matcher::lightglue_matcher(lightglue_matcher&&) noexcept = default;
 auto lightglue_matcher::operator=(lightglue_matcher&&) noexcept -> lightglue_matcher& = default;
 lightglue_matcher::~lightglue_matcher() = default;
 
-auto lightglue_matcher::match_images(cv::Mat const& img1,
-                                     cv::Mat const& img2) const -> match_result {
+auto lightglue_matcher::match_images(cv::Mat const& img1, cv::Mat const& img2) const
+    -> match_result {
     match_result result;
 
     // Preprocess images
@@ -115,10 +109,8 @@ auto lightglue_matcher::match_images(cv::Mat const& img1,
     auto& mutable_session = const_cast<onnx_session&>(*session_);
     std::array<Ort::Value, 2> inputs = {std::move(tensor0), std::move(tensor1)};
 
-    auto outputs = mutable_session.run(
-        std::span{input_names},
-        std::span{inputs},
-        std::span{output_names});
+    auto outputs =
+        mutable_session.run(std::span{input_names}, std::span{inputs}, std::span{output_names});
 
     // Extract matched keypoints from outputs
     // outputs[0] = kpts0: [1, N, 2]

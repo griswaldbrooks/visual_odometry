@@ -1,15 +1,14 @@
-#include <gtest/gtest.h>
-#include <visual_odometry/feature_matcher.hpp>
-#include <visual_odometry/image_matcher.hpp>
-
 #include <exception>
 #include <filesystem>
 #include <string>
 #include <variant>
 #include <vector>
 
+#include <gtest/gtest.h>
 #include <opencv2/core.hpp>
 #include <opencv2/core/hal/interface.h>
+#include <visual_odometry/feature_matcher.hpp>
+#include <visual_odometry/image_matcher.hpp>
 
 namespace {
 
@@ -152,7 +151,8 @@ TEST(LightGlueMatcherFactoryTest, CanBeCreatedViaFactory) {
         auto matcher = visual_odometry::create_image_matcher("lightglue");
 
         // THEN matcher should be a lightglue_matcher
-        EXPECT_EQ(std::visit([](auto const& m) -> std::string_view { return m.name(); }, matcher), "LightGlue");
+        EXPECT_EQ(std::visit([](auto const& m) -> std::string_view { return m.name(); }, matcher),
+                  "LightGlue");
     } catch (std::exception const& e) {
         // Factory uses default path which may not be accessible from test directory
         std::string const msg = e.what();

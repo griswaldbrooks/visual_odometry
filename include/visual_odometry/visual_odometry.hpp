@@ -1,7 +1,7 @@
 #pragma once
 
-#include <opencv2/core.hpp>
 #include <Eigen/Core>
+#include <opencv2/core.hpp>
 
 namespace visual_odometry {
 

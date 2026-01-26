@@ -1,15 +1,14 @@
-#include <visual_odometry/onnx_session.hpp>
-
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
+#include <onnxruntime_c_api.h>
+#include <onnxruntime_cxx_api.h>
 #include <span>
 #include <stdexcept>
 #include <vector>
 
-#include <onnxruntime_c_api.h>
-#include <onnxruntime_cxx_api.h>
+#include <visual_odometry/onnx_session.hpp>
 
 namespace visual_odometry {
 
@@ -22,7 +21,7 @@ onnx_session::onnx_session(std::filesystem::path const& model_path)
     : onnx_session(model_path, Ort::SessionOptions{}) {}
 
 onnx_session::onnx_session(std::filesystem::path const& model_path,
-                         Ort::SessionOptions const& session_options)
+                           Ort::SessionOptions const& session_options)
     : session_{get_env(), model_path.c_str(), session_options} {
     // Cache input names
     auto const num_inputs = session_.GetInputCount();
@@ -42,21 +41,14 @@ onnx_session::onnx_session(std::filesystem::path const& model_path,
 }
 
 auto onnx_session::run(std::span<char const* const> input_names,
-                      std::span<Ort::Value> input_tensors,
-                      std::span<char const* const> output_names)
-    -> std::vector<Ort::Value> {
+                       std::span<Ort::Value> input_tensors,
+                       std::span<char const* const> output_names) -> std::vector<Ort::Value> {
     if (input_names.size() != input_tensors.size()) {
-        throw std::invalid_argument(
-            "input_names and input_tensors must have the same size");
+        throw std::invalid_argument("input_names and input_tensors must have the same size");
     }
 
-    return session_.Run(
-        Ort::RunOptions{nullptr},
-        input_names.data(),
-        input_tensors.data(),
-        input_names.size(),
-        output_names.data(),
-        output_names.size());
+    return session_.Run(Ort::RunOptions{nullptr}, input_names.data(), input_tensors.data(),
+                        input_names.size(), output_names.data(), output_names.size());
 }
 
 auto onnx_session::input_shape(size_t index) const -> std::vector<int64_t> {
@@ -77,8 +69,7 @@ auto onnx_session::output_shape(size_t index) const -> std::vector<int64_t> {
     return tensor_info.GetShape();
 }
 
-auto create_tensor(float const* data, std::span<int64_t const> shape)
-    -> Ort::Value {
+auto create_tensor(float const* data, std::span<int64_t const> shape) -> Ort::Value {
     // Calculate total size
     int64_t total_size = 1;
     for (auto const dim : shape) {
@@ -87,10 +78,7 @@ auto create_tensor(float const* data, std::span<int64_t const> shape)
 
     // Use allocator to create tensor and copy data
     Ort::AllocatorWithDefaultOptions const allocator;
-    auto tensor = Ort::Value::CreateTensor<float>(
-        allocator,
-        shape.data(),
-        shape.size());
+    auto tensor = Ort::Value::CreateTensor<float>(allocator, shape.data(), shape.size());
 
     // Copy data into the allocated tensor
     auto* tensor_data = tensor.GetTensorMutableData<float>();
@@ -99,8 +87,7 @@ auto create_tensor(float const* data, std::span<int64_t const> shape)
     return tensor;
 }
 
-auto create_tensor(std::vector<float> const& data,
-                   std::span<int64_t const> shape) -> Ort::Value {
+auto create_tensor(std::vector<float> const& data, std::span<int64_t const> shape) -> Ort::Value {
     return create_tensor(data.data(), shape);
 }
 

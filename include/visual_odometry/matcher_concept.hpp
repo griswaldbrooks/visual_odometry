@@ -1,9 +1,10 @@
 #pragma once
 
-#include <visual_odometry/feature_matcher.hpp>
-#include <opencv2/core.hpp>
 #include <concepts>
 #include <string_view>
+
+#include <opencv2/core.hpp>
+#include <visual_odometry/feature_matcher.hpp>
 
 namespace visual_odometry {
 
@@ -17,7 +18,7 @@ namespace visual_odometry {
  * This concept is used to constrain types in std::variant and provide
  * compile-time interface checking without virtual dispatch overhead.
  */
-template<typename T>
+template <typename T>
 concept matcher_like = requires(T m, cv::Mat const& img) {
     { m.match_images(img, img) } -> std::same_as<match_result>;
     { m.name() } -> std::convertible_to<std::string_view>;

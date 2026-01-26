@@ -1,14 +1,13 @@
-#include <gtest/gtest.h>
-#include <visual_odometry/onnx_session.hpp>
-
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
 #include <iostream>
+#include <onnxruntime_cxx_api.h>
 #include <stdexcept>
 #include <vector>
 
-#include <onnxruntime_cxx_api.h>
+#include <gtest/gtest.h>
+#include <visual_odometry/onnx_session.hpp>
 
 namespace {
 

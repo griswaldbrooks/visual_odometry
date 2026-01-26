@@ -1,8 +1,9 @@
 #pragma once
 
+#include <vector>
+
 #include <opencv2/core.hpp>
 #include <opencv2/features2d.hpp>
-#include <vector>
 
 namespace visual_odometry {
 
@@ -32,8 +33,7 @@ struct feature_detector_config {
  * @param config Detection configuration.
  * @return detection_result containing keypoints and descriptors.
  */
-[[nodiscard]] auto detect_features(cv::Mat const& image,
-                                    feature_detector_config const& config = {})
+[[nodiscard]] auto detect_features(cv::Mat const& image, feature_detector_config const& config = {})
     -> detection_result;
 
 /**
@@ -52,8 +52,7 @@ struct feature_detector_config {
  * @param keypoints Keypoints to draw.
  * @return Image with keypoints drawn.
  */
-[[nodiscard]] auto draw_keypoints(cv::Mat const& image,
-                                   std::vector<cv::KeyPoint> const& keypoints)
+[[nodiscard]] auto draw_keypoints(cv::Mat const& image, std::vector<cv::KeyPoint> const& keypoints)
     -> cv::Mat;
 
 }  // namespace visual_odometry

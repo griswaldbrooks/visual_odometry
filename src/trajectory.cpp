@@ -1,6 +1,3 @@
-#include <visual_odometry/trajectory.hpp>
-#include <visual_odometry/motion_estimator.hpp>
-
 #include <cstddef>
 #include <filesystem>
 #include <fstream>
@@ -9,8 +6,10 @@
 #include <string>
 #include <vector>
 
-#include <tl/expected.hpp>
 #include <Eigen/Dense>
+#include <tl/expected.hpp>
+#include <visual_odometry/motion_estimator.hpp>
+#include <visual_odometry/trajectory.hpp>
 
 namespace visual_odometry {
 
@@ -111,8 +110,7 @@ auto Trajectory::to_json() const -> std::string {
 }
 
 auto Trajectory::save_to_json(std::filesystem::path const& filepath) const
-    -> tl::expected<void, std::string>
-{
+    -> tl::expected<void, std::string> {
     std::ofstream file(filepath);
     if (!file.is_open()) {
         return tl::unexpected("Failed to open file for writing: " + filepath.string());

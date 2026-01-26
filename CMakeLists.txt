@@ -4,8 +4,7 @@ project(
   visual_odometry
   VERSION 0.1.0
   DESCRIPTION "Visual odometry system using feature-based motion estimation"
-  LANGUAGES CXX
-)
+  LANGUAGES CXX)
 
 # Only do these if this is the main project
 if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
@@ -39,23 +38,26 @@ find_package(Eigen3 REQUIRED)
 # Find ONNX Runtime (from conda/pixi environment)
 if(DEFINED ENV{CONDA_PREFIX})
   set(ONNXRUNTIME_ROOT "$ENV{CONDA_PREFIX}")
-  find_path(ONNXRUNTIME_INCLUDE_DIR
+  find_path(
+    ONNXRUNTIME_INCLUDE_DIR
     NAMES onnxruntime_cxx_api.h
     PATHS "${ONNXRUNTIME_ROOT}/include/onnxruntime/core/session"
-    NO_DEFAULT_PATH
-  )
-  find_library(ONNXRUNTIME_LIBRARY
+    NO_DEFAULT_PATH)
+  find_library(
+    ONNXRUNTIME_LIBRARY
     NAMES onnxruntime
     PATHS "${ONNXRUNTIME_ROOT}/lib"
-    NO_DEFAULT_PATH
-  )
+    NO_DEFAULT_PATH)
   if(ONNXRUNTIME_INCLUDE_DIR AND ONNXRUNTIME_LIBRARY)
     message(STATUS "Found ONNX Runtime: ${ONNXRUNTIME_LIBRARY}")
     message(STATUS "ONNX Runtime include: ${ONNXRUNTIME_INCLUDE_DIR}")
     add_library(onnxruntime::onnxruntime SHARED IMPORTED)
-    set_target_properties(onnxruntime::onnxruntime PROPERTIES
-      IMPORTED_LOCATION "${ONNXRUNTIME_LIBRARY}"
-      INTERFACE_INCLUDE_DIRECTORIES "${ONNXRUNTIME_ROOT}/include/onnxruntime/core/session;${ONNXRUNTIME_ROOT}/include"
+    set_target_properties(
+      onnxruntime::onnxruntime
+      PROPERTIES
+        IMPORTED_LOCATION "${ONNXRUNTIME_LIBRARY}"
+        INTERFACE_INCLUDE_DIRECTORIES
+        "${ONNXRUNTIME_ROOT}/include/onnxruntime/core/session;${ONNXRUNTIME_ROOT}/include"
     )
     set(ONNXRUNTIME_FOUND TRUE)
   else()
@@ -72,88 +74,73 @@ include(FetchContent)
 FetchContent_Declare(
   tl-expected
   GIT_REPOSITORY https://github.com/TartanLlama/expected.git
-  GIT_TAG v1.1.0
-)
+  GIT_TAG v1.1.0)
 FetchContent_MakeAvailable(tl-expected)
 
 # Python bindings dependencies
 if(ENABLE_PYTHON_BINDINGS)
-  find_package(Python 3.10 COMPONENTS Interpreter Development.Module REQUIRED)
+  find_package(
+    Python 3.10
+    COMPONENTS Interpreter Development.Module
+    REQUIRED)
 
   # Fetch nanobind
   FetchContent_Declare(
     nanobind
     GIT_REPOSITORY https://github.com/wjakob/nanobind.git
-    GIT_TAG v2.4.0
-  )
+    GIT_TAG v2.4.0)
   FetchContent_MakeAvailable(nanobind)
 
-  # Fetch cvnp_nano for cv::Mat <-> numpy conversion (header-only, don't run CMakeLists)
+  # Fetch cvnp_nano for cv::Mat <-> numpy conversion (header-only, don't run
+  # CMakeLists)
   FetchContent_Declare(
     cvnp_nano
     GIT_REPOSITORY https://github.com/pthom/cvnp_nano.git
-    GIT_TAG main
-  )
+    GIT_TAG main)
   FetchContent_Populate(cvnp_nano)
-  # cvnp_nano is header-only, we just need the include path: ${cvnp_nano_SOURCE_DIR}
+  # cvnp_nano is header-only, we just need the include path:
+  # ${cvnp_nano_SOURCE_DIR}
 endif()
 
 # Compiler warnings
 add_library(project_warnings INTERFACE)
 target_compile_options(
   project_warnings
-  INTERFACE
-    -Wall
-    -Wextra
-    -Wpedantic
-    -Wshadow
-    -Wnon-virtual-dtor
-    -Wold-style-cast
-    -Wcast-align
-    -Wunused
-    -Woverloaded-virtual
-    -Wconversion
-    -Wsign-conversion
-    -Wnull-dereference
-    -Wdouble-promotion
-    -Wformat=2
-    -Wimplicit-fallthrough
-)
+  INTERFACE -Wall
+            -Wextra
+            -Wpedantic
+            -Wshadow
+            -Wnon-virtual-dtor
+            -Wold-style-cast
+            -Wcast-align
+            -Wunused
+            -Woverloaded-virtual
+            -Wconversion
+            -Wsign-conversion
+            -Wnull-dereference
+            -Wdouble-promotion
+            -Wformat=2
+            -Wimplicit-fallthrough)
 
 # Sanitizers
 add_library(project_sanitizers INTERFACE)
 if(ENABLE_SANITIZERS)
-  message(STATUS "Enabling sanitizers: AddressSanitizer, UndefinedBehaviorSanitizer")
+  message(
+    STATUS "Enabling sanitizers: AddressSanitizer, UndefinedBehaviorSanitizer")
   target_compile_options(
     project_sanitizers
-    INTERFACE
-      -fsanitize=address,undefined
-      -fno-omit-frame-pointer
-      -fno-optimize-sibling-calls
-  )
-  target_link_options(
-    project_sanitizers
-    INTERFACE
-      -fsanitize=address,undefined
-  )
+    INTERFACE -fsanitize=address,undefined -fno-omit-frame-pointer
+              -fno-optimize-sibling-calls)
+  target_link_options(project_sanitizers INTERFACE -fsanitize=address,undefined)
 endif()
 
 # Coverage
 add_library(project_coverage INTERFACE)
 if(ENABLE_COVERAGE)
   message(STATUS "Enabling coverage reporting")
-  target_compile_options(
-    project_coverage
-    INTERFACE
-      --coverage
-      -fprofile-arcs
-      -ftest-coverage
-  )
-  target_link_options(
-    project_coverage
-    INTERFACE
-      --coverage
-  )
+  target_compile_options(project_coverage INTERFACE --coverage -fprofile-arcs
+                                                    -ftest-coverage)
+  target_link_options(project_coverage INTERFACE --coverage)
 endif()
 
 # Clang-tidy
@@ -164,7 +151,8 @@ if(ENABLE_CLANG_TIDY)
 endif()
 
 # Project library
-add_library(visual_odometry_lib
+add_library(
+  visual_odometry_lib
   src/visual_odometry.cpp
   src/image_loader.cpp
   src/feature_detector.cpp
@@ -172,51 +160,41 @@ add_library(visual_odometry_lib
   src/image_matcher.cpp
   src/motion_estimator.cpp
   src/trajectory.cpp
-  $<$<BOOL:${ONNXRUNTIME_FOUND}>:src/onnx_session.cpp>
-)
+  $<$<BOOL:${ONNXRUNTIME_FOUND}>:src/onnx_session.cpp>)
 add_library(visual_odometry::lib ALIAS visual_odometry_lib)
 
 target_sources(
   visual_odometry_lib
   PUBLIC
-    FILE_SET HEADERS
-    BASE_DIRS include
+    FILE_SET
+    HEADERS
+    BASE_DIRS
+    include
     FILES
-      include/visual_odometry/visual_odometry.hpp
-      include/visual_odometry/image_loader.hpp
-      include/visual_odometry/feature_detector.hpp
-      include/visual_odometry/feature_matcher.hpp
-      include/visual_odometry/image_matcher.hpp
-      include/visual_odometry/motion_estimator.hpp
-      include/visual_odometry/trajectory.hpp
-      $<$<BOOL:${ONNXRUNTIME_FOUND}>:include/visual_odometry/onnx_session.hpp>
-)
+    include/visual_odometry/visual_odometry.hpp
+    include/visual_odometry/image_loader.hpp
+    include/visual_odometry/feature_detector.hpp
+    include/visual_odometry/feature_matcher.hpp
+    include/visual_odometry/image_matcher.hpp
+    include/visual_odometry/motion_estimator.hpp
+    include/visual_odometry/trajectory.hpp
+    $<$<BOOL:${ONNXRUNTIME_FOUND}>:include/visual_odometry/onnx_session.hpp>)
 
 target_compile_features(visual_odometry_lib PUBLIC cxx_std_20)
 
-set_target_properties(
-  visual_odometry_lib
-  PROPERTIES
-    CXX_EXTENSIONS OFF
-)
+set_target_properties(visual_odometry_lib PROPERTIES CXX_EXTENSIONS OFF)
 
 target_link_libraries(
   visual_odometry_lib
-  PUBLIC
-    project_warnings
-    project_sanitizers
-    project_coverage
-    ${OpenCV_LIBS}
-    Eigen3::Eigen
-    tl::expected
-    $<$<BOOL:${ONNXRUNTIME_FOUND}>:onnxruntime::onnxruntime>
-)
+  PUBLIC project_warnings
+         project_sanitizers
+         project_coverage
+         ${OpenCV_LIBS}
+         Eigen3::Eigen
+         tl::expected
+         $<$<BOOL:${ONNXRUNTIME_FOUND}>:onnxruntime::onnxruntime>)
 
-target_include_directories(
-  visual_odometry_lib
-  PUBLIC
-    ${OpenCV_INCLUDE_DIRS}
-)
+target_include_directories(visual_odometry_lib PUBLIC ${OpenCV_INCLUDE_DIRS})
 
 # Main executable (not built during coverage builds to avoid gcov issues)
 if(NOT ENABLE_COVERAGE)
@@ -247,12 +225,9 @@ if(ENABLE_DEVELOPER_MODE)
     set(DOXYGEN_USE_MDFILE_AS_MAINPAGE "${CMAKE_CURRENT_SOURCE_DIR}/README.md")
 
     doxygen_add_docs(
-      docs
-      ${CMAKE_CURRENT_SOURCE_DIR}/include
-      ${CMAKE_CURRENT_SOURCE_DIR}/src
+      docs ${CMAKE_CURRENT_SOURCE_DIR}/include ${CMAKE_CURRENT_SOURCE_DIR}/src
       ${CMAKE_CURRENT_SOURCE_DIR}/README.md
-      COMMENT "Generating API documentation with Doxygen"
-    )
+      COMMENT "Generating API documentation with Doxygen")
   else()
     message(STATUS "Doxygen not found, not building docs")
   endif()
@@ -263,70 +238,49 @@ if(ENABLE_COVERAGE)
   add_custom_target(
     coverage
     COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/coverage
-    COMMAND gcovr
-      --gcov-executable "llvm-cov gcov"
-      --root ${CMAKE_SOURCE_DIR}
-      --filter ${CMAKE_SOURCE_DIR}/src
-      --filter ${CMAKE_SOURCE_DIR}/include
-      --exclude ${CMAKE_SOURCE_DIR}/tests
-      --xml ${CMAKE_BINARY_DIR}/coverage/coverage.xml
-      --html-details ${CMAKE_BINARY_DIR}/coverage/coverage.html
-      --print-summary
+    COMMAND
+      gcovr --gcov-executable "llvm-cov gcov" --root ${CMAKE_SOURCE_DIR}
+      --filter ${CMAKE_SOURCE_DIR}/src --filter ${CMAKE_SOURCE_DIR}/include
+      --exclude ${CMAKE_SOURCE_DIR}/tests --xml
+      ${CMAKE_BINARY_DIR}/coverage/coverage.xml --html-details
+      ${CMAKE_BINARY_DIR}/coverage/coverage.html --print-summary
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
     COMMENT "Generating coverage report"
-    DEPENDS visual_odometry_tests
-  )
+    DEPENDS visual_odometry_tests)
 endif()
 
 # Python bindings
 if(ENABLE_PYTHON_BINDINGS)
   # Create a version of the library without sanitizers for Python bindings
-  add_library(visual_odometry_lib_py
+  add_library(
+    visual_odometry_lib_py
     src/visual_odometry.cpp
     src/image_loader.cpp
     src/feature_detector.cpp
     src/feature_matcher.cpp
     src/image_matcher.cpp
     src/motion_estimator.cpp
-    src/trajectory.cpp
-  )
+    src/trajectory.cpp)
 
   target_compile_features(visual_odometry_lib_py PUBLIC cxx_std_20)
-  set_target_properties(visual_odometry_lib_py PROPERTIES CXX_EXTENSIONS OFF POSITION_INDEPENDENT_CODE ON)
+  set_target_properties(
+    visual_odometry_lib_py PROPERTIES CXX_EXTENSIONS OFF
+                                      POSITION_INDEPENDENT_CODE ON)
 
-  target_link_libraries(
-    visual_odometry_lib_py
-    PUBLIC
-      ${OpenCV_LIBS}
-      Eigen3::Eigen
-      tl::expected
-  )
+  target_link_libraries(visual_odometry_lib_py
+                        PUBLIC ${OpenCV_LIBS} Eigen3::Eigen tl::expected)
 
   target_include_directories(
-    visual_odometry_lib_py
-    PUBLIC
-      ${CMAKE_CURRENT_SOURCE_DIR}/include
-      ${OpenCV_INCLUDE_DIRS}
-  )
+    visual_odometry_lib_py PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include
+                                  ${OpenCV_INCLUDE_DIRS})
 
   # Create Python module
-  nanobind_add_module(
-    _visual_odometry_impl
-    NB_STATIC
-    src/python_bindings.cpp
-  )
+  nanobind_add_module(_visual_odometry_impl NB_STATIC src/python_bindings.cpp)
 
-  target_link_libraries(
-    _visual_odometry_impl
-    PRIVATE
-      visual_odometry_lib_py
-  )
+  target_link_libraries(_visual_odometry_impl PRIVATE visual_odometry_lib_py)
 
-  target_include_directories(
-    _visual_odometry_impl
-    PRIVATE
-      ${cvnp_nano_SOURCE_DIR}
-  )
+  target_include_directories(_visual_odometry_impl
+                             PRIVATE ${cvnp_nano_SOURCE_DIR})
 
   # Install the module to the python package directory
   install(TARGETS _visual_odometry_impl LIBRARY DESTINATION visual_odometry)

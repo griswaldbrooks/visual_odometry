@@ -1,9 +1,10 @@
 #pragma once
 
-#include <opencv2/core.hpp>
-#include <opencv2/features2d.hpp>
 #include <span>
 #include <vector>
+
+#include <opencv2/core.hpp>
+#include <opencv2/features2d.hpp>
 
 namespace visual_odometry {
 
@@ -37,12 +38,10 @@ struct feature_matcher_config {
  * @param config Matching configuration.
  * @return match_result containing matched points and matches.
  */
-[[nodiscard]] auto match_features(cv::Mat const& descriptors1,
-                                   cv::Mat const& descriptors2,
-                                   std::span<cv::KeyPoint const> keypoints1,
-                                   std::span<cv::KeyPoint const> keypoints2,
-                                   feature_matcher_config const& config = {})
-    -> match_result;
+[[nodiscard]] auto match_features(cv::Mat const& descriptors1, cv::Mat const& descriptors2,
+                                  std::span<cv::KeyPoint const> keypoints1,
+                                  std::span<cv::KeyPoint const> keypoints2,
+                                  feature_matcher_config const& config = {}) -> match_result;
 
 /**
  * @brief Draw matches between two images.
@@ -54,10 +53,9 @@ struct feature_matcher_config {
  * @return Image with matches drawn.
  */
 [[nodiscard]] auto draw_feature_matches(cv::Mat const& image1,
-                                         std::vector<cv::KeyPoint> const& keypoints1,
-                                         cv::Mat const& image2,
-                                         std::vector<cv::KeyPoint> const& keypoints2,
-                                         std::vector<cv::DMatch> const& matches)
-    -> cv::Mat;
+                                        std::vector<cv::KeyPoint> const& keypoints1,
+                                        cv::Mat const& image2,
+                                        std::vector<cv::KeyPoint> const& keypoints2,
+                                        std::vector<cv::DMatch> const& matches) -> cv::Mat;
 
 }  // namespace visual_odometry

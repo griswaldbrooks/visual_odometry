@@ -1,12 +1,13 @@
 #pragma once
 
+#include <string>
+#include <string_view>
+#include <utility>
+#include <vector>
+
 #include <opencv2/core.hpp>
 #include <opencv2/imgcodecs.hpp>
 #include <tl/expected.hpp>
-#include <string>
-#include <string_view>
-#include <vector>
-#include <utility>
 
 namespace visual_odometry {
 
@@ -30,8 +31,7 @@ public:
      * @param index Image index (0-based).
      * @return Grayscale image or error message if index is invalid.
      */
-    [[nodiscard]] auto load_image(size_t index) const
-        -> tl::expected<cv::Mat, std::string>;
+    [[nodiscard]] auto load_image(size_t index) const -> tl::expected<cv::Mat, std::string>;
 
     /**
      * @brief Load a pair of consecutive images.
@@ -45,8 +45,7 @@ public:
      * @brief Get the next pair of images and advance the index.
      * @return Pair of consecutive images or error.
      */
-    [[nodiscard]] auto next_pair()
-        -> tl::expected<std::pair<cv::Mat, cv::Mat>, std::string>;
+    [[nodiscard]] auto next_pair() -> tl::expected<std::pair<cv::Mat, cv::Mat>, std::string>;
 
     /**
      * @brief Check if more image pairs are available.

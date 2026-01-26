@@ -1,14 +1,13 @@
-#include <gtest/gtest.h>
-#include <gmock/gmock.h>
-#include <visual_odometry/image_loader.hpp>
-
 #include <filesystem>
 #include <string>
 
+#include <gmock/gmock.h>
+#include <gtest/gtest.h>
 #include <opencv2/core/hal/interface.h>
 #include <opencv2/core/mat.hpp>
 #include <opencv2/core/types.hpp>
 #include <opencv2/imgcodecs.hpp>
+#include <visual_odometry/image_loader.hpp>
 
 namespace fs = std::filesystem;
 
@@ -23,15 +22,13 @@ protected:
         for (int i = 0; i < 5; ++i) {
             cv::Mat const img(100, 100, CV_8UC1, cv::Scalar(i * 50));
             std::string const filename = test_dir_.string() + "/" +
-                                   std::string(6 - std::to_string(i).length(), '0') +
-                                   std::to_string(i) + ".png";
+                                         std::string(6 - std::to_string(i).length(), '0') +
+                                         std::to_string(i) + ".png";
             cv::imwrite(filename, img);
         }
     }
 
-    void TearDown() override {
-        fs::remove_all(test_dir_);
-    }
+    void TearDown() override { fs::remove_all(test_dir_); }
 
     fs::path test_dir_;
 };
