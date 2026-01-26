@@ -111,6 +111,9 @@ auto main(int argc, char* argv[]) -> int {  // NOLINT(bugprone-exception-escape)
     }
     auto loader = std::move(loader_result.value());
     std::cout << "Found " << loader.size() << " images\n";
+    if (loader.has_timestamps()) {
+        std::cout << "Timestamps loaded from rgb.txt\n";
+    }
 
     if (loader.size() < 2) {
         std::cerr << "Error: Need at least 2 images for visual odometry\n";
@@ -131,7 +134,10 @@ auto main(int argc, char* argv[]) -> int {  // NOLINT(bugprone-exception-escape)
               << "\n";
 
     visual_odometry::motion_estimator_config const config{};
-    visual_odometry::Trajectory trajectory;
+
+    // Initialize trajectory with first image's timestamp
+    auto const initial_timestamp = loader.get_timestamp(0);
+    visual_odometry::Trajectory trajectory(initial_timestamp);
 
     // Determine number of frames to process
     auto const total_pairs = loader.size() - 1;
@@ -144,18 +150,18 @@ auto main(int argc, char* argv[]) -> int {  // NOLINT(bugprone-exception-escape)
     // Process frame pairs
     int valid_motions = 0;
     for (size_t i = 0; i < max_pairs; ++i) {
-        auto pair_result = loader.load_image_pair(i);
+        auto pair_result = loader.load_image_pair_with_timestamps(i);
         if (!pair_result.has_value()) {
             std::cerr << "Warning: Failed to load pair " << i << ": " << pair_result.error()
                       << "\n";
             continue;
         }
-        auto const& [img1, img2] = pair_result.value();
+        auto const& img_pair = pair_result.value();
 
         // Match features between images
         auto const match_result = std::visit(
             [&](visual_odometry::matcher_like auto const& m) -> visual_odometry::match_result {
-                return m.match_images(img1, img2);
+                return m.match_images(img_pair.first.image, img_pair.second.image);
             },
             matcher);
 
@@ -163,8 +169,8 @@ auto main(int argc, char* argv[]) -> int {  // NOLINT(bugprone-exception-escape)
         auto const motion = visual_odometry::estimate_motion(
             match_result.points1, match_result.points2, intrinsics, config);
 
-        // Add to trajectory
-        if (trajectory.add_motion(motion)) {
+        // Add to trajectory with timestamp of the second image (the new pose)
+        if (trajectory.add_motion(motion, img_pair.second.timestamp)) {
             ++valid_motions;
         }
 

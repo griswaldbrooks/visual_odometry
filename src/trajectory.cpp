@@ -13,11 +13,10 @@
 
 namespace visual_odometry {
 
-auto pose::identity() noexcept -> pose {
-    return pose{
-        .rotation = Eigen::Matrix3d::Identity(),  // NOLINT(misc-include-cleaner)
-        .translation = Eigen::Vector3d::Zero()    // NOLINT(misc-include-cleaner)
-    };
+auto pose::identity(double ts) noexcept -> pose {
+    return pose{.rotation = Eigen::Matrix3d::Identity(),  // NOLINT(misc-include-cleaner)
+                .translation = Eigen::Vector3d::Zero(),   // NOLINT(misc-include-cleaner)
+                .timestamp = ts};
 }
 
 auto pose::compose(motion_estimate const& relative) const noexcept -> pose {
@@ -30,16 +29,17 @@ auto pose::compose(motion_estimate const& relative) const noexcept -> pose {
     return result;
 }
 
-Trajectory::Trajectory() {
-    poses_.push_back(pose::identity());
+Trajectory::Trajectory(double initial_timestamp) {
+    poses_.push_back(pose::identity(initial_timestamp));
 }
 
-auto Trajectory::add_motion(motion_estimate const& motion) -> bool {
+auto Trajectory::add_motion(motion_estimate const& motion, double timestamp) -> bool {
     if (!motion.valid) {
         return false;
     }
 
-    auto const new_pose = poses_.back().compose(motion);
+    auto new_pose = poses_.back().compose(motion);
+    new_pose.timestamp = timestamp;
     poses_.push_back(new_pose);
     return true;
 }
@@ -71,15 +71,20 @@ auto Trajectory::to_json() const -> std::string {
     oss << "{\n  \"poses\": [\n";
 
     for (size_t i = 0; i < poses_.size(); ++i) {
-        auto const& pose = poses_[i];
+        auto const& p = poses_[i];
         oss << "    {\n";
+
+        // Timestamp - use fixed notation to preserve fractional seconds
+        oss << "      \"timestamp\": " << std::fixed << p.timestamp
+            << std::defaultfloat  // NOLINT(misc-include-cleaner)
+            << ",\n";
 
         // Rotation matrix as 3x3 array
         oss << "      \"rotation\": [\n";
         for (int row = 0; row < 3; ++row) {
             oss << "        [";
             for (int col = 0; col < 3; ++col) {
-                oss << pose.rotation(row, col);
+                oss << p.rotation(row, col);
                 if (col < 2) {
                     oss << ", ";
                 }
@@ -94,9 +99,9 @@ auto Trajectory::to_json() const -> std::string {
 
         // Translation as array
         oss << "      \"translation\": [";
-        oss << pose.translation(0) << ", ";
-        oss << pose.translation(1) << ", ";
-        oss << pose.translation(2) << "]\n";
+        oss << p.translation(0) << ", ";
+        oss << p.translation(1) << ", ";
+        oss << p.translation(2) << "]\n";
 
         oss << "    }";
         if (i < poses_.size() - 1) {

@@ -43,6 +43,25 @@ NB_MODULE(_visual_odometry_impl, m) {
     m.doc() = "Visual odometry library - Python bindings";
     m.attr("__version__") = "0.1.0";
 
+    // ==================== timestamped_image ====================
+    nb::class_<vo::timestamped_image>(m, "TimestampedImage", "Image with associated timestamp.")
+
+        .def(nb::init<>())
+
+        .def_rw("image", &vo::timestamped_image::image, "Grayscale image (numpy array).")
+
+        .def_rw("timestamp", &vo::timestamped_image::timestamp,
+                "Timestamp in seconds since epoch.");
+
+    // ==================== timestamped_image_pair ====================
+    nb::class_<vo::timestamped_image_pair>(m, "TimestampedImagePair", "Pair of timestamped images.")
+
+        .def(nb::init<>())
+
+        .def_rw("first", &vo::timestamped_image_pair::first, "First timestamped image.")
+
+        .def_rw("second", &vo::timestamped_image_pair::second, "Second timestamped image.");
+
     // ==================== image_loader ====================
     nb::class_<vo::image_loader>(m, "image_loader",
                                  "Loads sequential images from a directory for visual odometry.")
@@ -72,6 +91,18 @@ NB_MODULE(_visual_odometry_impl, m) {
             "    Grayscale image as numpy array.")
 
         .def(
+            "load_image_with_timestamp",
+            [](vo::image_loader const& self, size_t index) {
+                return unwrap_expected(self.load_image_with_timestamp(index));
+            },
+            "index"_a,
+            "Load a single image with its timestamp.\n\n"
+            "Args:\n"
+            "    index: Image index (0-based).\n\n"
+            "Returns:\n"
+            "    TimestampedImage containing the image and timestamp.")
+
+        .def(
             "load_image_pair",
             [](vo::image_loader const& self, size_t index) {
                 return unwrap_expected(self.load_image_pair(index));
@@ -84,16 +115,47 @@ NB_MODULE(_visual_odometry_impl, m) {
             "    Tuple of (image[index], image[index+1]).")
 
         .def(
+            "load_image_pair_with_timestamps",
+            [](vo::image_loader const& self, size_t index) {
+                return unwrap_expected(self.load_image_pair_with_timestamps(index));
+            },
+            "index"_a,
+            "Load a pair of consecutive images with timestamps.\n\n"
+            "Args:\n"
+            "    index: Index of first image.\n\n"
+            "Returns:\n"
+            "    TimestampedImagePair containing both images and timestamps.")
+
+        .def(
             "next_pair", [](vo::image_loader& self) { return unwrap_expected(self.next_pair()); },
             "Get the next pair of images and advance the index.\n\n"
             "Returns:\n"
             "    Tuple of consecutive images.")
+
+        .def(
+            "next_pair_with_timestamps",
+            [](vo::image_loader& self) {
+                return unwrap_expected(self.next_pair_with_timestamps());
+            },
+            "Get the next pair of images with timestamps and advance the index.\n\n"
+            "Returns:\n"
+            "    TimestampedImagePair containing both images and timestamps.")
 
         .def("has_next", &vo::image_loader::has_next, "Check if more image pairs are available.")
 
         .def("reset", &vo::image_loader::reset, "Reset to the first image.")
 
         .def("size", &vo::image_loader::size, "Get total number of images.")
+
+        .def("get_timestamp", &vo::image_loader::get_timestamp, "index"_a,
+             "Get timestamp for a specific image.\n\n"
+             "Args:\n"
+             "    index: Image index (0-based).\n\n"
+             "Returns:\n"
+             "    Timestamp in seconds since epoch, or 0.0 if unavailable.")
+
+        .def("has_timestamps", &vo::image_loader::has_timestamps,
+             "Check if timestamps are available (rgb.txt was parsed).")
 
         .def("__len__", &vo::image_loader::size)
 
@@ -256,7 +318,12 @@ NB_MODULE(_visual_odometry_impl, m) {
         .def_rw("translation", &vo::pose::translation,
                 "Translation vector (3-element numpy array).")
 
-        .def_static("identity", &vo::pose::identity, "Create identity pose (origin).")
+        .def_rw("timestamp", &vo::pose::timestamp, "Timestamp in seconds since epoch.")
+
+        .def_static("identity", &vo::pose::identity, "ts"_a = 0.0,
+                    "Create identity pose (origin).\n\n"
+                    "Args:\n"
+                    "    ts: Optional timestamp for the origin pose (default: 0.0).")
 
         .def("compose", &vo::pose::compose, "motion"_a,
              "Compose this pose with a relative transform.\n\n"
@@ -268,12 +335,16 @@ NB_MODULE(_visual_odometry_impl, m) {
     // ==================== Trajectory ====================
     nb::class_<vo::Trajectory>(m, "Trajectory", "Accumulates camera poses to build a trajectory.")
 
-        .def(nb::init<>(), "Construct empty trajectory starting at origin.")
+        .def(nb::init<double>(), "initial_timestamp"_a = 0.0,
+             "Construct empty trajectory starting at origin.\n\n"
+             "Args:\n"
+             "    initial_timestamp: Timestamp for the origin pose (default: 0.0).")
 
-        .def("add_motion", &vo::Trajectory::add_motion, "motion"_a,
+        .def("add_motion", &vo::Trajectory::add_motion, "motion"_a, "timestamp"_a = 0.0,
              "Add a relative motion estimate to the trajectory.\n\n"
              "Args:\n"
-             "    motion: Relative motion from current to next frame.\n\n"
+             "    motion: Relative motion from current to next frame.\n"
+             "    timestamp: Timestamp of the new pose in seconds (default: 0.0).\n\n"
              "Returns:\n"
              "    True if motion was valid and added, False otherwise.")
 

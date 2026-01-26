@@ -16,11 +16,13 @@ namespace visual_odometry {
 struct pose {
     Eigen::Matrix3d rotation{Eigen::Matrix3d::Identity()};
     Eigen::Vector3d translation{Eigen::Vector3d::Zero()};
+    double timestamp{0.0};
 
     /**
      * @brief Create identity pose (origin).
+     * @param ts Optional timestamp for the origin pose.
      */
-    [[nodiscard]] static auto identity() noexcept -> pose;
+    [[nodiscard]] static auto identity(double ts = 0.0) noexcept -> pose;
 
     /**
      * @brief Compose this pose with a relative transform.
@@ -37,15 +39,17 @@ class Trajectory {
 public:
     /**
      * @brief Construct empty trajectory starting at origin.
+     * @param initial_timestamp Timestamp for the origin pose (default: 0.0).
      */
-    Trajectory();
+    explicit Trajectory(double initial_timestamp = 0.0);
 
     /**
      * @brief Add a relative motion estimate to the trajectory.
      * @param motion Relative motion from current to next frame.
+     * @param timestamp Timestamp of the new pose (seconds since epoch).
      * @return true if motion was valid and added, false otherwise.
      */
-    auto add_motion(motion_estimate const& motion) -> bool;
+    auto add_motion(motion_estimate const& motion, double timestamp = 0.0) -> bool;
 
     /**
      * @brief Get all poses in the trajectory.

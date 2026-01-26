@@ -153,6 +153,18 @@ TEST(PoseTest, IdentityPoseIsAtOrigin) {
     // THEN rotation should be identity and translation zero
     EXPECT_TRUE(pose.rotation.isIdentity());
     EXPECT_TRUE(pose.translation.isZero());
+    EXPECT_EQ(pose.timestamp, 0.0);
+}
+
+TEST(PoseTest, IdentityPoseWithTimestamp) {
+    // GIVEN an identity pose with timestamp
+    double const ts = 1305031102.175304;
+    auto const pose = visual_odometry::pose::identity(ts);
+
+    // THEN rotation should be identity, translation zero, and timestamp set
+    EXPECT_TRUE(pose.rotation.isIdentity());
+    EXPECT_TRUE(pose.translation.isZero());
+    EXPECT_EQ(pose.timestamp, ts);
 }
 
 TEST(PoseTest, ComposeWithIdentityMotionIsUnchanged) {
@@ -187,6 +199,7 @@ TEST_F(trajectory_test, ToJsonProducesValidJson) {
     EXPECT_THAT(json, testing::HasSubstr("\"poses\""));
     EXPECT_THAT(json, testing::HasSubstr("\"rotation\""));
     EXPECT_THAT(json, testing::HasSubstr("\"translation\""));
+    EXPECT_THAT(json, testing::HasSubstr("\"timestamp\""));
 }
 
 TEST_F(trajectory_test, ToJsonContainsAllPoses) {
@@ -247,4 +260,63 @@ TEST_F(trajectory_test, SaveToJsonReturnsErrorForInvalidPath) {
     // THEN save should fail with error
     ASSERT_FALSE(result.has_value());
     EXPECT_THAT(result.error(), testing::HasSubstr("Failed to open"));
+}
+
+TEST_F(trajectory_test, TrajectoryWithInitialTimestamp) {
+    // GIVEN a trajectory with initial timestamp
+    double const initial_ts = 1305031102.175304;
+    visual_odometry::Trajectory const trajectory(initial_ts);
+
+    // THEN origin pose should have the timestamp
+    EXPECT_EQ(trajectory.current_pose().timestamp, initial_ts);
+}
+
+TEST_F(trajectory_test, AddMotionWithTimestamp) {
+    // GIVEN a trajectory
+    visual_odometry::Trajectory trajectory;
+
+    // WHEN adding motion with timestamp
+    double const ts = 1305031102.211214;
+    bool const added = trajectory.add_motion(forward_motion_, ts);
+
+    // THEN motion should be added
+    EXPECT_TRUE(added);
+
+    // AND new pose should have the timestamp
+    EXPECT_EQ(trajectory.current_pose().timestamp, ts);
+}
+
+TEST_F(trajectory_test, TimestampsInJson) {
+    // GIVEN a trajectory with timestamped motions
+    double const initial_ts = 1305031102.175304;
+    double const motion_ts = 1305031102.211214;
+    visual_odometry::Trajectory trajectory(initial_ts);
+    trajectory.add_motion(forward_motion_, motion_ts);
+
+    // WHEN converting to JSON
+    auto const json = trajectory.to_json();
+
+    // THEN JSON should contain timestamps that start with expected value
+    // (floating point representation may have small differences in trailing digits)
+    EXPECT_THAT(json, testing::HasSubstr("1305031102.1753"));
+    EXPECT_THAT(json, testing::HasSubstr("1305031102.2112"));
+}
+
+TEST_F(trajectory_test, TimestampsAccumulateCorrectly) {
+    // GIVEN a trajectory with initial timestamp
+    double const initial_ts = 1000.0;
+    visual_odometry::Trajectory trajectory(initial_ts);
+
+    // WHEN adding multiple motions with timestamps
+    trajectory.add_motion(forward_motion_, 1001.0);
+    trajectory.add_motion(forward_motion_, 1002.0);
+    trajectory.add_motion(forward_motion_, 1003.0);
+
+    // THEN poses should have correct timestamps
+    auto const& poses = trajectory.poses();
+    ASSERT_EQ(poses.size(), 4);
+    EXPECT_EQ(poses[0].timestamp, 1000.0);
+    EXPECT_EQ(poses[1].timestamp, 1001.0);
+    EXPECT_EQ(poses[2].timestamp, 1002.0);
+    EXPECT_EQ(poses[3].timestamp, 1003.0);
 }
