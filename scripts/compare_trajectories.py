@@ -29,6 +29,63 @@ from trajectory_utils import (
 )
 
 
+def compute_umeyama_alignment(
+    gt_positions: np.ndarray, est_positions: np.ndarray
+) -> tuple[float, np.ndarray, np.ndarray]:
+    """Compute optimal similarity transform using Umeyama algorithm.
+
+    Finds scale, rotation, and translation that minimizes:
+        sum || gt_i - (scale * R @ est_i + t) ||^2
+
+    Args:
+        gt_positions: Ground truth positions, shape (N, 3)
+        est_positions: Estimated positions, shape (N, 3)
+
+    Returns:
+        Tuple of (scale, rotation, translation) where:
+        - scale: float, uniform scale factor
+        - rotation: (3, 3) array, rotation matrix
+        - translation: (3,) array, translation vector
+    """
+    assert gt_positions.shape == est_positions.shape
+    assert gt_positions.shape[1] == 3
+
+    n = gt_positions.shape[0]
+
+    # Center the points
+    mu_gt = gt_positions.mean(axis=0)
+    mu_est = est_positions.mean(axis=0)
+    gt_centered = gt_positions - mu_gt
+    est_centered = est_positions - mu_est
+
+    # Compute variances
+    sigma_gt_sq = (gt_centered ** 2).sum() / n
+    sigma_est_sq = (est_centered ** 2).sum() / n
+
+    # Compute cross-covariance matrix
+    H = est_centered.T @ gt_centered / n
+
+    # SVD of cross-covariance
+    U, S, Vt = np.linalg.svd(H)
+
+    # Compute rotation
+    R = Vt.T @ U.T
+
+    # Handle reflection case (ensure proper rotation)
+    if np.linalg.det(R) < 0:
+        Vt[-1, :] *= -1
+        S[-1] *= -1
+        R = Vt.T @ U.T
+
+    # Compute scale
+    scale = S.sum() / sigma_est_sq
+
+    # Compute translation
+    translation = mu_gt - scale * R @ mu_est
+
+    return scale, R, translation
+
+
 def add_trajectory_to_scene(
     server: viser.ViserServer,
     interp: TrajectoryInterpolator,
@@ -111,8 +168,14 @@ def create_plot_html(
     est_t = est_interp.timestamps - est_interp.timestamps[0]
     est_pos_raw = est_interp.positions
 
-    # GT interpolated at EST timestamps (for error computation)
+    # GT interpolated at EST timestamps (for error computation and Umeyama alignment)
     gt_at_est, _ = gt_interp.interpolate_batch(est_interp.timestamps)
+
+    # Compute optimal alignment using Umeyama algorithm
+    # Uses GT interpolated at EST timestamps for point correspondence
+    optimal_scale, optimal_rotation, optimal_translation = compute_umeyama_alignment(
+        gt_at_est, est_pos_raw
+    )
 
     # Convert arrays to JSON for JavaScript embedding
     gt_t_json = json.dumps(gt_t.tolist())
@@ -241,6 +304,28 @@ def create_plot_html(
         <label for="lock-offsets" style="color: #2196F3;">Lock offsets (change together by same delta)</label>
     </div>
 
+    <div class="scale-control" style="background: #1a3a1a; border: 1px solid #4CAF50;">
+        <button id="auto-align-btn" style="
+            padding: 10px 20px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+        ">Auto-align (Umeyama)</button>
+        <div style="margin-left: 20px;">
+            <span style="color: #aaa;">Optimal values:</span>
+            <span style="color: #4CAF50; font-family: monospace; margin-left: 10px;">
+                scale={optimal_scale:.6f},
+                offset=[{optimal_translation[0]:.4f}, {optimal_translation[1]:.4f}, {optimal_translation[2]:.4f}]
+            </span>
+            <br>
+            <span style="color: #888; font-size: 12px;">(rotation ignored - UI only supports translation)</span>
+        </div>
+    </div>
+
     <div class="stats">
         <h3>Absolute Trajectory Error (ATE)</h3>
         <table class="metrics-table">
@@ -291,6 +376,12 @@ def create_plot_html(
         var gtAtEstX = {gt_at_est_x_json};
         var gtAtEstY = {gt_at_est_y_json};
         var gtAtEstZ = {gt_at_est_z_json};
+
+        // Optimal Umeyama alignment values (scale + translation, rotation ignored)
+        var optimalScale = {optimal_scale};
+        var optimalOffsetX = {optimal_translation[0]};
+        var optimalOffsetY = {optimal_translation[1]};
+        var optimalOffsetZ = {optimal_translation[2]};
 
         var layout = {{
             paper_bgcolor: '#1a1a1a',
@@ -590,6 +681,19 @@ def create_plot_html(
                 offsetZSlider.value = val;
                 handleOffsetChange('z', val);
             }}
+        }});
+
+        // Auto-align button click handler
+        document.getElementById('auto-align-btn').addEventListener('click', function() {{
+            // Apply optimal scale
+            scaleSlider.value = optimalScale;
+            scaleInput.value = optimalScale.toFixed(6);
+
+            // Apply optimal offsets (translation from Umeyama)
+            setOffsets(optimalOffsetX, optimalOffsetY, optimalOffsetZ);
+
+            // Trigger plot update
+            triggerUpdate();
         }});
     </script>
 </body>
