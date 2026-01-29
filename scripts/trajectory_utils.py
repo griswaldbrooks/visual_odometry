@@ -235,18 +235,20 @@ def load_kitti_trajectory(path: Path, fps: float = 10.0) -> TrajectoryInterpolat
     )
 
 
-def load_vo_trajectory(path: Path, fps: float = 10.0) -> TrajectoryInterpolator:
+def load_vo_trajectory(path: Path) -> TrajectoryInterpolator:
     """Load trajectory from C++ VO output (trajectory.json).
 
-    Format: JSON with "poses" array, each containing "translation" and "rotation".
-    Timestamps are assigned based on fps parameter.
+    Format: JSON with "poses" array, each containing "timestamp", "translation", and "rotation".
+    Each pose must include a timestamp field.
 
     Args:
         path: Path to trajectory.json file
-        fps: Frame rate to assign timestamps
 
     Returns:
         TrajectoryInterpolator instance
+
+    Raises:
+        KeyError: If a pose is missing the required "timestamp" field
     """
     with open(path) as f:
         data = json.load(f)
@@ -262,12 +264,16 @@ def load_vo_trajectory(path: Path, fps: float = 10.0) -> TrajectoryInterpolator:
     quaternions = []
 
     for i, pose in enumerate(poses):
+        if "timestamp" not in pose:
+            raise KeyError(f"Pose {i} missing required 'timestamp' field")
+
+        timestamp = pose["timestamp"]
         position = np.array(pose["translation"])
         rotation_mat = np.array(pose["rotation"]).reshape(3, 3)
         rotation = Rotation.from_matrix(rotation_mat)
         quaternion = rotation.as_quat()
 
-        timestamps.append(i / fps)
+        timestamps.append(timestamp)
         positions.append(position)
         quaternions.append(quaternion)
 
@@ -319,7 +325,7 @@ def load_trajectory(
     Args:
         path: Path to trajectory file
         format: Format hint ('auto', 'tum', 'kitti', 'vo_json')
-        fps: Frame rate for formats without timestamps (KITTI, vo_json)
+        fps: Frame rate for formats without timestamps (KITTI only)
 
     Returns:
         TrajectoryInterpolator instance
@@ -334,7 +340,7 @@ def load_trajectory(
     elif format == "kitti":
         return load_kitti_trajectory(path, fps)
     elif format == "vo_json":
-        return load_vo_trajectory(path, fps)
+        return load_vo_trajectory(path)
     else:
         raise ValueError(f"Unknown format: {format}")
 
